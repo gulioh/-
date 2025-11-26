@@ -47,13 +47,13 @@ class DataBase:
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS url (
                     id INTEGER PRIMARY KEY,
-                    channals TEXT DEFAULT "https://t.me/telegram",
-                    checks TEXT DEFAULT "https://t.me/telegram",
-                    rules TEXT DEFAULT "https://t.me/telegram",
-                    transfer TEXT DEFAULT "https://t.me/telegram",
-                    command_game TEXT DEFAULT "https://t.me/telegram",
-                    info_stavka TEXT DEFAULT "https://t.me/telegram",
-                    news TEXT DEFAULT "https://t.me/telegram"
+                    channals TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
+                    checks TEXT DEFAULT "https://t.me/+pFqhQ8D9hPFiNWU6",
+                    rules TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
+                    transfer TEXT DEFAULT "https://t.me/+pFqhQ8D9hPFiNWU6",
+                    command_game TEXT DEFAULT "/game",
+                    info_stavka TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
+                    news TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy"
                 )
             ''')
             
@@ -91,16 +91,34 @@ class DataBase:
         except Exception as e:
             logger.error(f"Ошибка инициализации статистики: {e}")
 
-    def db_urls(self):
-        """Инициализация URL"""
-        try:
-            self.cursor.execute('''
-                INSERT OR IGNORE INTO url (id) VALUES (1)
-            ''')
-            self.conn.commit()
-        except Exception as e:
-            logger.error(f"Ошибка инициализации URL: {e}")
-
+  def get_URL(self):
+    """Получение всех URL"""
+    try:
+        self.cursor.execute("SELECT * FROM url WHERE id = 1")
+        result = self.cursor.fetchone()
+        if result:
+            return {
+                'channals': result[1],
+                'checks': result[2],
+                'rules': result[3],
+                'transfer': result[4],
+                'command_game': result[5],
+                'info_stavka': result[6],
+                'news': result[7]
+            }
+    except Exception as e:
+        logger.error(f"Ошибка get_URL: {e}")
+    
+    # ВСЕ значения должны быть валидными URL
+    return {
+        'channals': "https://t.me/+u6NEVaY6PVxiZTYy",
+        'checks': "https://t.me/+pFqhQ8D9hPFiNWU6",
+        'rules': "https://t.me/+u6NEVaY6PVxiZTYy",
+        'transfer': "https://t.me/+pFqhQ8D9hPFiNWU6", 
+        'command_game': "/game",  # Используйте реальный URL
+        'info_stavka': "https://t.me/+u6NEVaY6PVxiZTYy",   # Используйте реальный URL
+        'news': "https://t.me/+u6NEVaY6PVxiZTYy"                                                                        
+    }
     # Методы для работы с пользователями
     def user_exists(self, user_id):
         """Проверка существования пользователя"""
@@ -288,3 +306,4 @@ class DataBase:
             self.conn.close()
         except:
             pass
+
