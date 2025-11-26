@@ -6,3 +6,5 @@ datetime
 
 db-sqlite3
 colorama==0.4.6
+
+loguru==0.7.2
