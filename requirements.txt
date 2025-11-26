@@ -3,4 +3,6 @@ aiocryptopay
 apscheduler
 pytz
 datetime
+
 db-sqlite3
+colorama==0.4.6
