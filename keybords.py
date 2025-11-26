@@ -150,17 +150,18 @@ def kb_answer_delete():
 
 
 def kb_info():
-    # Безопасное получение URL с запасными значениями
-    channals_url = safe_get_url('channals', '#')
-    news_url = safe_get_url('news', '#')
-    command_url = safe_get_url('command_game', '#')
-    transfer_url = safe_get_url('transfer', '#')
-    rules_url = safe_get_url('rules', '#')
+    # Безопасное получение URL с реальными запасными значениями
+    channals_url = safe_get_url('channals', 'https://t.me/+u6NEVaY6PVxiZTYy')
+    news_url = safe_get_url('news', 'https://t.me/+u6NEVaY6PVxiZTYy')
+    command_url = safe_get_url('command_game', 'https://t.me/+u6NEVaY6PVxiZTYy')
+    transfer_url = safe_get_url('transfer', 'https://t.me/+pFqhQ8D9hPFiNWU6')
+    rules_url = safe_get_url('rules', 'https://t.me/+u6NEVaY6PVxiZTYy')
     
     bilder = InlineKeyboardBuilder([
         [InlineKeyboardButton(text='🎲 Играть', url=channals_url),
          InlineKeyboardButton(text='📄 Новости', url=news_url)],
-        [InlineKeyboardButton(text='✍️ Ключевые слова', url=command_url)],
+        # Закомментируйте эту строку если command_game не URL
+        # [InlineKeyboardButton(text='✍️ Ключевые слова', url=command_url)],
         [InlineKeyboardButton(text='💸 Выплаты', url=transfer_url),
          InlineKeyboardButton(text='❓ Правила', url=rules_url)]
     ])
@@ -257,3 +258,4 @@ def kb_urls():
         [InlineKeyboardButton(text='« Назад', callback_data=f'back_admin')]
     ])
     return bilder.as_markup()
+
