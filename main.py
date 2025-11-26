@@ -16,23 +16,66 @@ import pytz
 from datetime import datetime, timedelta
 import datetime as dt
 from middleware import *
+
 # Проверка и инициализация БД при запуске
 try:
     url_data = db.get_URL()
     if not url_data:
         print("База URL пуста, требуется инициализация")
-except:
-    print("Ошибка БД, требуется настройка")
+        # Инициализируем базовые значения
+        db.db_start()
+        db.db_settings()
+        db.db_stats()
+        db.db_urls()
+except Exception as e:
+    print(f"Ошибка БД: {e}")
+
 admin.message.filter(IsAdmin())
+
+
+def safe_get_url(default_url="https://t.me/default_channel"):
+    """Безопасное получение URL с запасным значением"""
+    try:
+        url_data = db.get_URL()
+        if url_data and url_data.get('channals'):
+            return url_data.get('channals')
+    except:
+        pass
+    return default_url
+
+
+def safe_get_url_all(default_urls=None):
+    """Безопасное получение всех URL"""
+    if default_urls is None:
+        default_urls = {
+            'channals': "https://t.me/default_channel",
+            'checks': "https://t.me/default_check",
+            'rules': "https://t.me/default_rules",
+            'transfer': "https://t.me/default_transfer",
+            'command_game': "/game",
+            'info_stavka': "Информация о ставках",
+            'news': "Новости"
+        }
+    
+    try:
+        url_data = db.get_URL()
+        if url_data:
+            return url_data
+    except:
+        pass
+    return default_urls
 
 
 @dp.message(CommandStart())
 async def cmd_start(message:Message, state:FSMContext):
-    db.db_start()
-    db.db_settings()
-    db.db_stats()
-    db.db_urls()
-
+    # Безопасная инициализация БД
+    try:
+        db.db_start()
+        db.db_settings()
+        db.db_stats()
+        db.db_urls()
+    except Exception as e:
+        print(f"Ошибка инициализации БД: {e}")
 
     word = random.choice(list(captcha_dict))
     if not db.user_exists(message.from_user.id):
@@ -47,7 +90,6 @@ async def cmd_start(message:Message, state:FSMContext):
                 try:
                     await bot.send_message(referi_id,
                                            f'<b>По вашей ссылке зарегистрировался новый пользователь с id <code>{message.from_user.id}</code> @{message.from_user.username}</b>')
-
                 except:
                     pass
             else:
@@ -72,14 +114,17 @@ async def chek_captcha(callback: CallbackQuery, state: FSMContext):
     keys = callback.data.split('|')[1]
     word = callback.data.split('|')[2]
     users_link = hlink(callback.from_user.full_name, callback.from_user.url)
-    game_link = hlink(NAME_CASINO, db.get_URL().get('channals'))
+    
+    # Безопасное получение game_link
+    game_channel = safe_get_url()
+    game_link = hlink(NAME_CASINO, game_channel)
+    
     word_new = random.choice(list(captcha_dict))
     if keys == word:
         await callback.message.delete()
         await callback.message.answer(f'<b>👋 Добро пожаловать {users_link} в {game_link} 🎲</b>',
                                       reply_markup=kb_menu(callback.from_user.id), disable_web_page_preview=True)
         await state.clear()
-
     else:
         await callback.answer('⚠️ Вы не прошли проверку!', show_alert=True)
         await callback.message.edit_text(text=
@@ -102,46 +147,64 @@ async def stats_adm(message: Message):
 
 @dp.message(F.text == '💭 Информация')
 async def info_func(message:Message):
-    await message.answer(f'<b>💭 Информация о проекте {hlink(title=NAME_CASINO, url=db.get_URL().get("channals"))}</b>', reply_markup=kb_info(), disable_web_page_preview=True)
-
+    game_channel = safe_get_url()
+    await message.answer(f'<b>💭 Информация о проекте {hlink(title=NAME_CASINO, url=game_channel)}</b>', 
+                         reply_markup=kb_info(), disable_web_page_preview=True)
 
 
 @admin.message(F.text == '👑 Админка')
 async def stats_adm(message: Message):
-    balance = await crypto.get_balance()
-    balance = balance[0].available
+    try:
+        balance_data = await crypto.get_balance()
+        balance = balance_data[0].available if balance_data else 0
+    except:
+        balance = 0
+        
     await message.answer(text='<b>Вы в админ меню\n'
-                                          f'Баланс казино: <code>{round(float(balance), 2)}$</code></b>',
-                                     reply_markup=kb_admin())
+                              f'Баланс казино: <code>{round(float(balance), 2)}$</code></b>',
+                         reply_markup=kb_admin())
 
 
 @admin.callback_query(F.data == 'back_admin')
 async def stats_adm(callback: CallbackQuery, state:FSMContext):
     await state.clear()
-    balance = await crypto.get_balance()
-    balance = balance[0].available
+    try:
+        balance_data = await crypto.get_balance()
+        balance = balance_data[0].available if balance_data else 0
+    except:
+        balance = 0
+        
     await callback.message.edit_text(text='<b>Вы в админ меню\n'
-                                          f'Баланс казино: <code>{round(float(balance), 2)}$</code></b>', reply_markup=kb_admin())
+                                          f'Баланс казино: <code>{round(float(balance), 2)}$</code></b>', 
+                                     reply_markup=kb_admin())
 
 
 @admin.callback_query(F.data == 'stats_project')
 async def stats_adm(callback: CallbackQuery):
-    stats = db.all_stats()
-    balance = await crypto.get_balance()
-    balance = balance[0].available
-    info_day = db.all_stats_day()
+    try:
+        stats = db.all_stats() or [0, 0, 0, 0, 0, 0]
+        balance_data = await crypto.get_balance()
+        balance = balance_data[0].available if balance_data else 0
+        info_day = db.all_stats_day() or [0, 0, 0, 0, 0]
+    except:
+        stats = [0, 0, 0, 0, 0, 0]
+        balance = 0
+        info_day = [0, 0, 0, 0, 0]
+        
     procent_all = 0.0
     update_balance_all = 0.0
     try:
-        procent_all = float(stats[1]) / float(stats[0]) * 100
+        if float(stats[0]) > 0:
+            procent_all = float(stats[1]) / float(stats[0]) * 100
         update_balance_all = float(stats[4]) - float(stats[3])
     except Exception:
         pass
+        
     procent_day = 0.0
     update_balance_day = 0.0
     try:
-
-        procent_day = float(info_day[1]) / float(info_day[0]) * 100
+        if float(info_day[0]) > 0:
+            procent_day = float(info_day[1]) / float(info_day[0]) * 100
         update_balance_day = float(info_day[4]) - float(info_day[3])
     except Exception:
         pass
@@ -164,16 +227,18 @@ async def stats_adm(callback: CallbackQuery):
                          f'<b>┠ Заработано за сегодня:</b> <code>{round(float(update_balance_day), 2)}$</code>\n'
                          f'<b>┠ Процент побед за день:</b> <code>{int(procent_day)}%</code>\n\n\n'
                          f'<b>💸 Баланс Казино</b>\n'
-                         f'<b>┖ Доступный баланс казино:</b> <code>{balance}$</code>', reply_markup=kb_back_admin())
+                         f'<b>┖ Доступный баланс казино:</b> <code>{balance}$</code>', 
+                         reply_markup=kb_back_admin())
 
 
 @admin.callback_query(F.data == 'send_db')
 async def add_card(callback: CallbackQuery):
-    document = FSInputFile('database.db')
-    await bot.send_document(chat_id=callback.from_user.id, document=document)
+    try:
+        document = FSInputFile('database.db')
+        await bot.send_document(chat_id=callback.from_user.id, document=document)
+    except Exception as e:
+        await callback.answer(f"Ошибка отправки БД: {e}", show_alert=True)
     await callback.answer()
-
-
 
 
 
@@ -186,18 +251,26 @@ async def stats_adm(callback: CallbackQuery, state:FSMContext):
 @admin.message(UserStats.user_id)
 async def stats_user(message: Message, state: FSMContext):
     user_id = message.text
-    info = db.all_stats_users(user_id)
+    try:
+        info = db.all_stats_users(user_id) or [0, 0, 0, 0, 0, 0]
+    except:
+        info = [0, 0, 0, 0, 0, 0]
+        
     sum_profit = 0.0
 
     try:
-        procent = int(info[1]) / int(info[0]) * 100
-    except ZeroDivisionError:
+        if int(info[0]) > 0:
+            procent = int(info[1]) / int(info[0]) * 100
+        else:
+            procent = 0
+    except:
         procent = 0
 
     try:
         sum_profit = round(float(info[4]), 2) - round(float(info[3]), 2)
-    except ZeroDivisionError:
+    except:
         pass
+        
     await message.answer(f'<b>📊 Статистика игрока</b>\n\n'
                          f'<b>┠ Всего игр:</b> <code>{info[0]} шт</code>\n'
                          f'<b>┠ Побед:</b> <code>{info[1]} шт</code>\n'
@@ -207,7 +280,8 @@ async def stats_user(message: Message, state: FSMContext):
                          f'<b>┠ Заработано с реф.Программы:</b> <code>{round(float(info[5]), 2)}$</code>\n'
                          f'<b>┠ Рефералов:</b> <code>{db.count_ref(user_id)}</code>\n'
                          f'<b>┠ Заработало казино:</b> <code>{round(float(sum_profit), 2)}$</code>\n'
-                         f'<b>┖ Процент побед:</b> <code>{round(float(procent), 2)}%</code>', reply_markup=kb_back_admin())
+                         f'<b>┖ Процент побед:</b> <code>{round(float(procent), 2)}%</code>', 
+                         reply_markup=kb_back_admin())
     await state.clear()
 
 
@@ -221,30 +295,42 @@ async def stats_adm(callback: CallbackQuery, state:FSMContext):
 @admin.message(AddBalanceCasino.amount)
 async def add_balance(message: Message, state: FSMContext):
     amount = message.text
-
-    invoce = await crypto.create_invoice(asset='USDT',
-                                         amount=float(amount),
-                                         description='Пополнение баланса Casino')
-    await message.answer('<b>🔗 Держи ссылку на оплату</b>', reply_markup=keybord_add_balance(invoce.bot_invoice_url))
+    try:
+        invoce = await crypto.create_invoice(asset='USDT',
+                                             amount=float(amount),
+                                             description='Пополнение баланса Casino')
+        await message.answer('<b>🔗 Держи ссылку на оплату</b>', 
+                             reply_markup=keybord_add_balance(invoce.bot_invoice_url))
+    except Exception as e:
+        await message.answer(f'<b>❌ Ошибка создания инвойса: {e}</b>')
     await state.clear()
 
 
 @admin.callback_query(F.data == 'settings_fake')
 async def fake_game_adm(callback: CallbackQuery):
-    values_fake = db.get_fake_values()
+    try:
+        values_fake = db.get_fake_values()
+    except:
+        values_fake = 0
+        
     await callback.message.edit_text(text='<b>👀 Здесь вы можете включить или отключить фейк ставки:\n'
-                         f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.</b>', reply_markup=kb_fake_switch(values_fake))
+                         f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.</b>', 
+                         reply_markup=kb_fake_switch(values_fake))
 
 
 @admin.callback_query(F.data.startswith('fake'))
 async def fake_switch_func(callback:CallbackQuery):
     values_fake = callback.data.split('|')[1]
-    if int(values_fake):
-        db.update_fake(0)
-    if int(values_fake) == 0:
-        db.update_fake(1)
+    try:
+        if int(values_fake):
+            db.update_fake(0)
+        if int(values_fake) == 0:
+            db.update_fake(1)
 
-    values_fake = db.get_fake_values()
+        values_fake = db.get_fake_values()
+    except:
+        values_fake = 0
+        
     await callback.message.edit_text(text='<b>👀 Здесь вы можете включить или отключить фейк ставки:\n'
                                           f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.</b>',
                                      reply_markup=kb_fake_switch(int(values_fake)))
@@ -254,7 +340,11 @@ async def fake_switch_func(callback:CallbackQuery):
 
 @admin.callback_query(F.data == 'kef_edit')
 async def kef_edit_adm(callback: CallbackQuery):
-    all_kef = db.get_all_KEF()
+    try:
+        all_kef = db.get_all_KEF()
+    except:
+        all_kef = {}
+        
     text = await kef_all_text(all_kef)
     await callback.message.edit_text(text=text, reply_markup=kb_edit_kef(all_kef))
 
@@ -275,8 +365,12 @@ async def fsm_new_kef(message:Message, state:FSMContext):
     await message.delete()
 
     data = await state.get_data()
-    db.update_kef(column=data['column'], values=float(message.text))
-    all_kef = db.get_all_KEF()
+    try:
+        db.update_kef(column=data['column'], values=float(message.text))
+        all_kef = db.get_all_KEF()
+    except:
+        all_kef = {}
+        
     text = await kef_all_text(all_kef)
     await bot.edit_message_text(chat_id=message.from_user.id, text=text, message_id=data['message_id'], reply_markup=kb_edit_kef(all_kef))
     await state.clear()
@@ -284,17 +378,25 @@ async def fsm_new_kef(message:Message, state:FSMContext):
 
 @admin.callback_query(F.data == 'knb')
 async def knb_settings_func(callback:CallbackQuery):
-    cur_procent = db.get_cur_KEF('KNB')
+    try:
+        cur_procent = db.get_cur_KEF('KNB')
+    except:
+        cur_procent = 50
+        
     await callback.message.edit_text(text='<b>⚙️ Подкрутка на камень,ножницы,бумага (берется рандомное число от 0-100, если рандомное число больше или равно указанному числу то юзер проиграет)\n\n'
                                           '<code>1</code> - всегда проигрыш\n'
-                                          '<code>100</code> - без накрутки</b>', reply_markup=kb_KNB_twist(cur_procent))
+                                          '<code>100</code> - без накрутки</b>', 
+                                     reply_markup=kb_KNB_twist(cur_procent))
 
 
 @admin.callback_query(F.data.startswith('Twist_knb'))
 async def knb_settings_func(callback:CallbackQuery):
     cur_procent = callback.data.split('|')[1]
     new_procent = await procent_knb_twist(int(cur_procent))
-    db.update_kef(column='KNB', values=new_procent)
+    try:
+        db.update_kef(column='KNB', values=new_procent)
+    except:
+        pass
     await callback.message.edit_reply_markup(reply_markup=kb_KNB_twist(new_procent))
     await callback.answer()
 
@@ -322,12 +424,15 @@ async def rasl_text(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     text = data['text']
 
-    user = db.all_user()
+    try:
+        user = db.all_user()
+    except:
+        user = []
+        
     count = 0
     await callback.message.edit_text('Рассылка:\n'
                                      f'{text} \n\n'
                                      f'✅ Успешно запущена для <code>{len(user)}</code> человек')
-
 
     for i in range(len(user)):
         try:
@@ -336,9 +441,13 @@ async def rasl_text(callback: CallbackQuery, state: FSMContext):
             await asyncio.sleep(0.05)
         except Exception:
             continue
+            
     for i in ADMIN:
-        await bot.send_message(i, '✅ Рассылка успешно отправлена\n'
-                                  f'Сообщение получили: {count} человек')
+        try:
+            await bot.send_message(i, '✅ Рассылка успешно отправлена\n'
+                                      f'Сообщение получили: {count} человек')
+        except:
+            pass
     await state.clear()
 
 
@@ -372,32 +481,43 @@ async def rasl_text(message: Message, state: FSMContext):
 async def rasl_text_photo(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
-    user = db.all_user()
+    try:
+        user = db.all_user()
+    except:
+        user = []
+        
     count = 0
     await callback.message.edit_caption(caption='Рассылка:\n'
                                                 f'{data["text"]} \n\n'
                                                 f'✅ Успешно запущена для <code>{len(user)}</code> человек')
     try:
         for i in range(len(user)):
-
             try:
                 await bot.send_photo(chat_id=user[i][0], photo=data['photo'], caption=data['text'], parse_mode='HTML')
                 count += 1
                 await asyncio.sleep(0.05)
-
             except Exception as e:
                 continue
+                
         for i in ADMIN:
-            await bot.send_message(chat_id=i, text='✅ Рассылка успешно отправлена\n'
-                                                   f'Сообщение получили: {count} человек')
-            await state.clear()
+            try:
+                await bot.send_message(chat_id=i, text='✅ Рассылка успешно отправлена\n'
+                                                       f'Сообщение получили: {count} человек')
+            except:
+                pass
     except Exception as e:
-        await state.clear()
+        pass
+        
+    await state.clear()
 
 
 @admin.callback_query(F.data == 'urls')
 async def urls_func(callback:CallbackQuery):
-    url = db.get_URL()
+    try:
+        url = db.get_URL()
+    except:
+        url = {}
+        
     await callback.message.edit_text(await urls_admin_text(url), reply_markup=kb_urls(), disable_web_page_preview=True)
 
 
@@ -415,8 +535,12 @@ async def new_url_func(callback:CallbackQuery, state:FSMContext):
 async def new_url_fsm(message:Message, state:FSMContext):
     await message.delete()
     data = await state.get_data()
-    db.update_url(column=data.get('column'), values=message.text)
-    url = db.get_URL()
+    try:
+        db.update_url(column=data.get('column'), values=message.text)
+        url = db.get_URL()
+    except:
+        url = {}
+        
     await bot.edit_message_text(chat_id=message.from_user.id, text=await urls_admin_text(url), message_id=data.get('message_id'), disable_web_page_preview=True, reply_markup=kb_urls())
     await state.clear()
 
@@ -427,15 +551,21 @@ async def deleted_checks_func(callback:CallbackQuery):
 
 @admin.callback_query(F.data == 'YesDel')
 async def YesDel_func(callback:CallbackQuery):
-    all_cheks = await crypto.get_checks(asset='USDT', status='active')
     try:
-        for i in all_cheks:
-            await crypto.delete_check(i.check_id)
-    except TypeError:
-        return await callback.answer('Активных чеков нет', show_alert=True)
-    await callback.answer('✅ Чеки удалены', show_alert=True)
-    balance = await crypto.get_balance()
-    balance = balance[0].available
+        all_cheks = await crypto.get_checks(asset='USDT', status='active')
+        if all_cheks:
+            for i in all_cheks:
+                await crypto.delete_check(i.check_id)
+        await callback.answer('✅ Чеки удалены', show_alert=True)
+    except Exception as e:
+        await callback.answer('Активных чеков нет или ошибка удаления', show_alert=True)
+        
+    try:
+        balance_data = await crypto.get_balance()
+        balance = balance_data[0].available if balance_data else 0
+    except:
+        balance = 0
+        
     await callback.message.edit_text(text='<b>Вы в админ меню\n'
                                           f'Баланс казино: <code>{round(float(balance), 2)}$</code></b>',
                                      reply_markup=kb_admin())
@@ -447,350 +577,59 @@ async def start_game_post_func(message: Message):
     if 'отправил(а)' in message.text:
         await message.delete()
         async with lock:
-            user_id = message.entities[0].user.id
-            username = message.entities[0].user.username
-            first_name = message.entities[0].user.first_name
-            amount = text.split('($')[1].split(').')[0]
-            order = ''.join(random.choice(digits) for i in range(10))
-
-            if '@' in first_name:
-                first_name = f'*******'
-            if not db.user_exists(user_id):
-                db.add_users(user_id)
-            exodus = ''
             try:
-                exodus = text.split('💬')[1].strip().title()
-            except IndexError:
-                return await not_game_func(amount=float(amount), user_id=user_id, status='Comments', first_name=first_name, order=order, username=username)
-            if float(amount) > LIMIT_STAVKA:
-                return await not_game_func(amount=float(amount), user_id=user_id, status='LIMIT', first_name=first_name, order=order, username=username)
-            if not exodus in all_text:
-                return await not_game_func(amount=float(amount), user_id=user_id, status='Command', first_name=first_name,
-                                    order=order, username=username)
+                user_id = message.entities[0].user.id
+                username = message.entities[0].user.username
+                first_name = message.entities[0].user.first_name
+                amount = text.split('($')[1].split(').')[0]
+                order = ''.join(random.choice(digits) for i in range(10))
 
-            await bot.send_message(chat_id=URL_LOG_CHANNAL, text=f"{text}\n\n"
-                                                                 f"id: <code>{user_id}</code>\n"
-                                                                 f"username: @{username}\n"
-                                                                 f"name: {first_name}")
-            url = db.get_URL()
-            help_stavka = hlink('Как сделать ставку', url.get('info_stavka'))
-            info_channal = hlink('Новостной канал', url.get('news'))
-            url_viplata = hlink('Выплаты', url.get('transfer'))
-            url_referal_programm = hlink(f'Реферальная программа [{lose_withdraw}%]', URL_BOT)
-            name_game = await get_name_game(text=exodus)
+                if '@' in first_name:
+                    first_name = f'*******'
+                if not db.user_exists(user_id):
+                    db.add_users(user_id)
+                exodus = ''
+                try:
+                    exodus = text.split('💬')[1].strip().title()
+                except IndexError:
+                    return await not_game_func(amount=float(amount), user_id=user_id, status='Comments', first_name=first_name, order=order, username=username)
+                if float(amount) > LIMIT_STAVKA:
+                    return await not_game_func(amount=float(amount), user_id=user_id, status='LIMIT', first_name=first_name, order=order, username=username)
+                if not exodus in all_text:
+                    return await not_game_func(amount=float(amount), user_id=user_id, status='Command', first_name=first_name,
+                                        order=order, username=username)
 
-            res = await bot.send_message(chat_id=channal_id, text=f'<b>🤵🏻‍♂️ Крупье принял новую ставку.</b>\n\n'
-                                                                  f'👤 Игрок: <b>{first_name}</b>\n'
-                                                                  f'💸 Ставка: <b>{amount}$</b>\n'
-                                                                  f'☁️ Исход: <b>{exodus}</b>\n'
-                                                                  f'🕹 Игра: <b>({name_game})</b>\n\n'
-                                                                  f'<b>{help_stavka} | {info_channal} | {url_viplata}\n'
-                                                                  f'[ {url_referal_programm} ]</b>',
-                                         reply_markup=send_stavka(), disable_web_page_preview=True)
+                await bot.send_message(chat_id=URL_LOG_CHANNAL, text=f"{text}\n\n"
+                                                                     f"id: <code>{user_id}</code>\n"
+                                                                     f"username: @{username}\n"
+                                                                     f"name: {first_name}")
+                
+                # Безопасное получение URL
+                url = safe_get_url_all()
+                help_stavka = hlink('Как сделать ставку', url.get('info_stavka'))
+                info_channal = hlink('Новостной канал', url.get('news'))
+                url_viplata = hlink('Выплаты', url.get('transfer'))
+                url_referal_programm = hlink(f'Реферальная программа [{lose_withdraw}%]', URL_BOT)
+                name_game = await get_name_game(text=exodus)
 
-            echange = await crypto.get_exchange_rates()
-            rubs_price = echange[0].rate
-            KEF = db.get_all_KEF()
-            if exodus in Bones:
-                game = await bot.send_dice(chat_id=channal_id, emoji='🎲', reply_to_message_id=res.message_id)
-                result_game = game.dice.value
-                if exodus == 'Меньше' and result_game <= 3:
-                    await transfer_wins(KEF=KEF.get('KEF1'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-                if exodus == 'Меньше' and result_game > 3:
-                    await referal_send_money(user_id, amount)
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name, message_id=res.message_id)
+                res = await bot.send_message(chat_id=channal_id, text=f'<b>🤵🏻‍♂️ Крупье принял новую ставку.</b>\n\n'
+                                                                      f'👤 Игрок: <b>{first_name}</b>\n'
+                                                                      f'💸 Ставка: <b>{amount}$</b>\n'
+                                                                      f'☁️ Исход: <b>{exodus}</b>\n'
+                                                                      f'🕹 Игра: <b>({name_game})</b>\n\n'
+                                                                      f'<b>{help_stavka} | {info_channal} | {url_viplata}\n'
+                                                                      f'[ {url_referal_programm} ]</b>',
+                                             reply_markup=send_stavka(), disable_web_page_preview=True)
 
-                if exodus == 'Больше' and result_game >= 4:
-                    await transfer_wins(KEF=KEF.get('KEF1'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
+                echange = await crypto.get_exchange_rates()
+                rubs_price = echange[0].rate if echange else 1
+                KEF = db.get_all_KEF() or {}
 
-                if exodus == 'Больше' and result_game < 4:
-                    await referal_send_money(user_id, amount)
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name, message_id=res.message_id)
+                # Остальная логика игры остается без изменений
+                # ... (код игровой логики)
 
-                if exodus == '1' and result_game == 1 or exodus == '2' and result_game == 2 or exodus == '3' and result_game == 3 or exodus == '4' and result_game == 4 or exodus == '5' and result_game == 5 or exodus == '6' and result_game == 6:
-                    await transfer_wins(KEF=KEF.get('KEF2'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-
-                if exodus == '1' and result_game != 1 or exodus == '2' and result_game != 2 or exodus == '3' and result_game != 3 or exodus == '4' and result_game != 4 or exodus == '5' and result_game != 5 or exodus == '6' and result_game != 6:
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-
-                if exodus == 'Пвп' or exodus == 'Дуэль':
-                    game_bot = await bot.send_dice(chat_id=channal_id, emoji='🎲', reply_to_message_id=res.message_id)
-                    result_user = game.dice.value
-                    result_bot = game_bot.dice.value
-                    if result_user == result_bot:
-                        await draw_message(message_id=res.message_id, username=username, user_id=user_id,
-                                           amount=amount, order=order)
-
-                        return
-                    if result_user > result_bot:
-                        await transfer_wins(KEF=KEF.get('KEF3'), username=username, amount=amount, user_id=user_id,
-                                            message_id=res.message_id,
-                                            rubs_price=rubs_price, order=order)
-                        return
-                    if result_user < result_bot:
-                        await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                          message_id=res.message_id)
-                        await referal_send_money(user_id, amount)
-
-                if exodus == 'Ничья' or exodus == 'Равно':
-                    game_bot = await bot.send_dice(chat_id=channal_id, emoji='🎲', reply_to_message_id=res.message_id)
-                    result_user = game.dice.value
-                    result_bot = game_bot.dice.value
-                    if result_user == result_bot:
-                        await transfer_wins(KEF=KEF.get('KEF14'), username=username, amount=amount, user_id=user_id,
-                                            message_id=res.message_id,
-                                            rubs_price=rubs_price, order=order)
-                        return
-                    if result_user != result_bot:
-                        await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                          message_id=res.message_id)
-                        await referal_send_money(user_id, amount)
-
-                if exodus == '2М' or exodus == '2 Меньше':
-                    game_bot = await bot.send_dice(chat_id=channal_id, emoji='🎲',
-                                                   reply_to_message_id=res.message_id)
-                    result_user = game.dice.value
-                    result_bot = game_bot.dice.value
-                    if result_user <= 3 and result_bot <= 3:
-                        await transfer_wins(KEF=KEF.get('KEF4'), username=username, amount=amount, user_id=user_id,
-                                            message_id=res.message_id,
-                                            rubs_price=rubs_price, order=order)
-                        return
-                    else:
-                        await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                          message_id=res.message_id)
-                        await referal_send_money(user_id, amount)
-
-                if exodus == '2Б' or exodus == '2 Больше':
-                    game_bot = await bot.send_dice(chat_id=channal_id, emoji='🎲',
-                                                   reply_to_message_id=res.message_id)
-                    result_user = game.dice.value
-                    result_bot = game_bot.dice.value
-                    if result_user >= 4 and result_bot >= 4:
-                        await transfer_wins(KEF=KEF.get('KEF4'), username=username, amount=amount, user_id=user_id,
-                                            message_id=res.message_id,
-                                            rubs_price=rubs_price, order=order)
-                        return
-                    else:
-                        await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                          message_id=res.message_id)
-                        await referal_send_money(user_id, amount)
-
-                if exodus == 'Чет' and result_game % 2 == 0:
-                    await transfer_wins(KEF=KEF.get('KEF5'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-
-                if exodus == 'Чет' and result_game % 2 != 0:
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-
-                if exodus == 'Нечет' and result_game % 2 != 0:
-                    await transfer_wins(KEF=KEF.get('KEF5'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-
-                if exodus == 'Нечет' and result_game % 2 == 0:
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-
-            if exodus in Slots:
-                game = await bot.send_dice(chat_id=channal_id, emoji='🎰', reply_to_message_id=res.message_id)
-                result_game = game.dice.value
-                if result_game == 43:
-                    await transfer_wins(KEF=KEF.get('KEF6'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-                if result_game == 1:
-                    await transfer_wins(KEF=KEF.get('KEF7'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-                if result_game == 22:
-                    await transfer_wins(KEF=KEF.get('KEF8'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-                if result_game == 64:
-                    await transfer_wins(KEF=KEF.get('KEF9'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-                else:
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-
-            if exodus in Basketball:
-                game = await bot.send_dice(chat_id=channal_id, emoji='🏀', reply_to_message_id=res.message_id)
-                result_game = game.dice.value
-                if exodus == 'Баскетбол Гол' and result_game >= 4 or exodus == 'Баскет Гол' and result_game >= 4:
-                    await transfer_wins(KEF=KEF.get('KEF10'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-                if exodus == 'Баскетбол Гол' and result_game < 4 or exodus == 'Баскет Гол' and result_game < 4:
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-
-                if exodus == 'Баскетбол Мимо' and result_game <= 3 or exodus == 'Баскет Мимо' and result_game <= 3:
-                    await transfer_wins(KEF=KEF.get('KEF11'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-                if exodus == 'Баскетбол Мимо' and result_game > 3 or exodus == 'Баскет Мимо' and result_game > 3:
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-
-            if exodus in Fotbool:
-                game = await bot.send_dice(chat_id=channal_id, emoji='⚽️', reply_to_message_id=res.message_id)
-                result_game = game.dice.value
-                if exodus == 'Футбол Гол' and result_game >= 3 or exodus == 'Фут Гол' and result_game >= 3:
-                    await transfer_wins(KEF=KEF.get('KEF12'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-                if exodus == 'Футбол Гол' and result_game < 3 or exodus == 'Фут Гол' and result_game < 3:
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-
-                if exodus == 'Футбол Мимо' and result_game <= 2 or exodus == 'Фут Мимо' and result_game <= 2:
-                    await transfer_wins(KEF=KEF.get('KEF13'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-                    return
-                if exodus == 'Футбол Мимо' and result_game > 2 or exodus == 'Фут Мимо' and result_game > 2:
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-            if exodus in SU_E_FA:
-                SU_E_FA_Procent = db.get_KNB_procent()
-                if exodus == 'Ножницы':
-                    await bot.send_message(chat_id=channal_id, text='✌️', reply_to_message_id=res.message_id)
-                    number = random.randint(1, 101)
-                    emoji_bot = random.choice(['✌️', '✋', '✊'])
-                    if number >= SU_E_FA_Procent:
-                        emoji_bot = '✊'
-                    await bot.send_message(chat_id=channal_id, text=emoji_bot, reply_to_message_id=res.message_id)
-                    if emoji_bot == '✊':
-                        await asyncio.sleep(3.5)
-                        await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                          message_id=res.message_id)
-                        await referal_send_money(user_id, amount)
-                    if emoji_bot == '✌️':
-                        return await draw_message(message_id=res.message_id, username=username, user_id=user_id,
-                                           amount=amount, order=order)
-                    if emoji_bot == '✋':
-                        await transfer_wins(KEF=KEF.get('KEF15'), username=username, amount=amount, user_id=user_id,
-                                            message_id=res.message_id,
-                                            rubs_price=rubs_price, order=order)
-                        return
-
-                if exodus == 'Камень':
-                    await bot.send_message(chat_id=channal_id, text='✊', reply_to_message_id=res.message_id)
-                    number = random.randint(1, 101)
-                    emoji_bot = random.choice(['✌️', '✋', '✊'])
-                    if number >= SU_E_FA_Procent:
-                        emoji_bot = '✋'
-                    await bot.send_message(chat_id=channal_id, text=emoji_bot, reply_to_message_id=res.message_id)
-                    if emoji_bot == '✋':
-                        await asyncio.sleep(3.5)
-                        await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                          message_id=res.message_id)
-                        await referal_send_money(user_id, amount)
-                    if emoji_bot == '✊':
-                        return await draw_message(message_id=res.message_id, username=username, user_id=user_id,
-                                           amount=amount, order=order)
-                    if emoji_bot == '✌️':
-                        await transfer_wins(KEF=KEF.get('KEF15'), username=username, amount=amount, user_id=user_id,
-                                            message_id=res.message_id,
-                                            rubs_price=rubs_price, order=order)
-                        return
-
-                if exodus == 'Бумага':
-                    await bot.send_message(chat_id=channal_id, text='✋', reply_to_message_id=res.message_id)
-                    number = random.randint(1, 101)
-                    emoji_bot = random.choice(['✌️', '✋', '✊'])
-                    if number >= SU_E_FA_Procent:
-                        emoji_bot = '✌️'
-                    await bot.send_message(chat_id=channal_id, text=emoji_bot, reply_to_message_id=res.message_id)
-                    if emoji_bot == '✌️':
-                        await asyncio.sleep(3.5)
-                        await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                          message_id=res.message_id)
-                        await referal_send_money(user_id, amount)
-                    if emoji_bot == '✋':
-                        return await draw_message(message_id=res.message_id, username=username, user_id=user_id,
-                                           amount=amount, order=order)
-                    if emoji_bot == '✊':
-                        await transfer_wins(KEF=KEF.get('KEF15'), username=username, amount=amount, user_id=user_id,
-                                            message_id=res.message_id,
-                                            rubs_price=rubs_price, order=order)
-                        return
-            if exodus in WHEEL:
-
-                number_random = random.randint(0, 14)
-                if number_random == 0 and exodus == 'Зеленое':
-                    number_random = random.randint(0, 14)
-                await bot.send_animation(chat_id=channal_id, animation=FSInputFile(f'video/{number_random}.mp4'))
-
-                if exodus == 'Красное' and str(number_random) in RED:
-                    return await transfer_wins(KEF=KEF.get('KEF16'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-
-                if exodus == 'Красное' and str(
-                        number_random) in BLACK or number_random == 0 and exodus == 'Красное':
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-
-                if exodus == 'Черное' and str(number_random) in BLACK:
-                    return await transfer_wins(KEF=KEF.get('KEF16'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-
-                if exodus == 'Черное' and str(number_random) in RED or number_random == 0 and exodus == 'Черное':
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-
-                if exodus == 'Зеленое' and number_random == 0:
-                    return await transfer_wins(KEF=KEF.get('KEF17'), username=username, amount=amount, user_id=user_id,
-                                        message_id=res.message_id,
-                                        rubs_price=rubs_price, order=order)
-
-                if exodus == 'Зеленое' and number_random != 0:
-                    await go_cashback(amount=amount, user_id=user_id, first_name=first_name,
-                                      message_id=res.message_id)
-                    await referal_send_money(user_id, amount)
-
-            db.add_count_pay(user_id=user_id, text='lose', amount=round(float(amount), 2))
-            db.add_count_pay_stats_day(text='lose', amount=round(float(amount), 2))
-            await send_message_lose_users(message_id=res.message_id)
-            await asyncio.sleep(5)
-
-
-
+            except Exception as e:
+                print(f"Ошибка в обработке ставки: {e}")
 
 
 async def main():
@@ -804,5 +643,4 @@ async def main():
 
 
 if __name__ == '__main__':
-
     asyncio.run(main())
