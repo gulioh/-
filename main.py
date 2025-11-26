@@ -16,7 +16,13 @@ import pytz
 from datetime import datetime, timedelta
 import datetime as dt
 from middleware import *
-
+# Проверка и инициализация БД при запуске
+try:
+    url_data = db.get_URL()
+    if not url_data:
+        print("База URL пуста, требуется инициализация")
+except:
+    print("Ошибка БД, требуется настройка")
 admin.message.filter(IsAdmin())
 
 
@@ -798,4 +804,5 @@ async def main():
 
 
 if __name__ == '__main__':
+
     asyncio.run(main())
