@@ -26,21 +26,32 @@ async def captcha_keybord(word):
     return keybord.as_markup()
 
 
+def safe_get_url(key, default_url="#"):
+    """Безопасное получение URL с запасным значением"""
+    try:
+        urls = db.get_URL()
+        if urls and urls.get(key):
+            return urls.get(key)
+    except:
+        pass
+    return default_url
+
 
 def send_stavka():
+    checks_url = safe_get_url('checks', '#')
     keybord = InlineKeyboardBuilder([
-        [InlineKeyboardButton(text='💸 Сделать ставку', url=db.get_URL().get('checks'))]
-
+        [InlineKeyboardButton(text='💸 Сделать ставку', url=checks_url)]
     ])
     return keybord.as_markup()
 
 
 def kb_url_Channel():
+    channals_url = safe_get_url('channals', '#')
     keybord = InlineKeyboardBuilder([
-        [InlineKeyboardButton(text='💸 Сделать ставку', url=db.get_URL().get('channals'))]
-
+        [InlineKeyboardButton(text='💸 Сделать ставку', url=channals_url)]
     ])
     return keybord.as_markup()
+
 
 def send_okey():
     keybord = InlineKeyboardBuilder([
@@ -55,12 +66,14 @@ def get_cashback(user, amount):
     ])
     return keybord.as_markup()
 
+
 def get_fake_cashback(amount, status):
     text = f'✅ Кэшбэк получен [{amount}$]' if status else f'💸 Получить {round(float(amount), 2)}$'
     keybord = InlineKeyboardBuilder([
         [InlineKeyboardButton(text=text, callback_data=f'None')]
     ])
     return keybord.as_markup()
+
 
 def okay_cashback(amount):
     keybord = InlineKeyboardBuilder([
@@ -69,18 +82,20 @@ def okay_cashback(amount):
     return keybord.as_markup()
 
 
-
 def keybord_add_balance(url):
     keybord = InlineKeyboardBuilder([
         [InlineKeyboardButton(text='💸 Оплатить', url=url)]
     ])
     return keybord.as_markup()
 
+
 def commands_game():
+    command_url = safe_get_url('command_game', '#')
     keybord = InlineKeyboardBuilder([
-        [InlineKeyboardButton(text='📄 Команды', url=db.get_URL('command_game'))]
+        [InlineKeyboardButton(text='📄 Команды', url=command_url)]
     ])
     return keybord.as_markup()
+
 
 def ikb_stop():
     bilder = InlineKeyboardBuilder([
@@ -101,8 +116,6 @@ def kb_menu(user):
     return keybord.as_markup(resize_keyboard=True)
 
 
-
-
 def kb_admin():
     bilder = InlineKeyboardBuilder([
         [InlineKeyboardButton(text='📊 Статистика казино', callback_data='stats_project')],
@@ -118,6 +131,7 @@ def kb_admin():
     ])
     return bilder.as_markup()
 
+
 def ikb_tip_rassilka():
     bilder = InlineKeyboardBuilder([
         [InlineKeyboardButton(text='📸 Фото', callback_data='photo'),
@@ -125,6 +139,7 @@ def ikb_tip_rassilka():
         [InlineKeyboardButton(text='« Назад', callback_data='back_admin')]
     ])
     return bilder.as_markup()
+
 
 def kb_answer_delete():
     bilder = InlineKeyboardBuilder([
@@ -135,15 +150,22 @@ def kb_answer_delete():
 
 
 def kb_info():
-    urls = db.get_URL()
+    # Безопасное получение URL с запасными значениями
+    channals_url = safe_get_url('channals', '#')
+    news_url = safe_get_url('news', '#')
+    command_url = safe_get_url('command_game', '#')
+    transfer_url = safe_get_url('transfer', '#')
+    rules_url = safe_get_url('rules', '#')
+    
     bilder = InlineKeyboardBuilder([
-        [InlineKeyboardButton(text='🎲 Играть', url=urls.get('channals')),
-         InlineKeyboardButton(text='📄 Новости', url=urls.get('news'))],
-        [InlineKeyboardButton(text='✍️ Ключевые слова', url=urls.get('command_game'))],
-        [InlineKeyboardButton(text='💸 Выплаты', url=urls.get('transfer')),
-         InlineKeyboardButton(text='❓ Правила', url=urls.get('rules'))]
+        [InlineKeyboardButton(text='🎲 Играть', url=channals_url),
+         InlineKeyboardButton(text='📄 Новости', url=news_url)],
+        [InlineKeyboardButton(text='✍️ Ключевые слова', url=command_url)],
+        [InlineKeyboardButton(text='💸 Выплаты', url=transfer_url),
+         InlineKeyboardButton(text='❓ Правила', url=rules_url)]
     ])
     return bilder.as_markup()
+
 
 def kb_fake_switch(values: int):
     text_button = "🔴 Отключить" if values else '🟢 Включить'
@@ -160,13 +182,19 @@ def kb_back_admin():
     ])
     return bilder.as_markup()
 
+
 def kb_edit_kef(data: dict):
     bilder = InlineKeyboardBuilder()
-    for index, values in enumerate(data.items(), start=1):
-        bilder.add(InlineKeyboardButton(text=f"{index}) [{values[1]}x]", callback_data=f'new_kef|{values[0]}|{values[1]}'))
+    # Проверяем что data не None и является словарем
+    if data and isinstance(data, dict):
+        for index, values in enumerate(data.items(), start=1):
+            bilder.add(InlineKeyboardButton(text=f"{index}) [{values[1]}x]", callback_data=f'new_kef|{values[0]}|{values[1]}'))
+    else:
+        # Если data пустое, создаем пустую клавиатуру
+        bilder.add(InlineKeyboardButton(text="Нет данных", callback_data="none"))
+    
     bilder.adjust(3)
     bilder.row(InlineKeyboardButton(text='« Назад', callback_data=f'back_admin'), width=1)
-
     return bilder.as_markup()
 
 
@@ -179,10 +207,10 @@ def kb_KNB_twist(cur_value:int):
 
 
 def kb_send_chek(url):
+    checks_url = safe_get_url('checks', '#')
     bilder = InlineKeyboardBuilder([
         [InlineKeyboardButton(text=f'🎁 Забрать приз', url=url)],
-        [InlineKeyboardButton(text='💸 Сделать ставку', url=db.get_URL().get('checks'))]
-
+        [InlineKeyboardButton(text='💸 Сделать ставку', url=checks_url)]
     ])
     return bilder.as_markup()
 
@@ -192,6 +220,7 @@ def kb_viev_post(url, amount):
         [InlineKeyboardButton(text=f'🎁 [{round(float(amount), 2)}$]', url=url)],
     ])
     return bilder.as_markup()
+
 
 def get_cashback_check(url, amount):
     keybord = InlineKeyboardBuilder([
@@ -226,6 +255,5 @@ def kb_urls():
         [InlineKeyboardButton(text='Как сделать ставку', callback_data=f'UrlEdit|info_stavka|Как сделать ставку')],
         [InlineKeyboardButton(text='Ключевые слова', callback_data=f'UrlEdit|command_game|Ключевые слова')],
         [InlineKeyboardButton(text='« Назад', callback_data=f'back_admin')]
-
     ])
     return bilder.as_markup()
