@@ -77,8 +77,8 @@ def get_URL(self):
         'transfer': "https://t.me/+pFqhQ8D9hPFiNWU6", 
         'command_game': "/game",
         'info_stavka': "Информация о ставках",
-        'news': "https://t.me/+u6NEVaY6PVxiZTYy"
-
+        'news': "https://t.me/+u6NEVaY6PVxiZTYy"                                                                        
+    }
     def all_stats_day(self):
         with self.connection:
             return self.cur.execute('SELECT count_play, win, lose, balance_win, balance_lose FROM stats').fetchone()
@@ -187,3 +187,4 @@ def get_URL(self):
         with self.connection:
 
             return self.cur.execute(f'UPDATE urls SET {column} = ?', (values,))
+
