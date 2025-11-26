@@ -188,3 +188,53 @@ def get_URL(self):
 
             return self.cur.execute(f'UPDATE urls SET {column} = ?', (values,))
 
+
+def count_ref(self, user_id):
+    """Подсчет количества рефералов пользователя"""
+    try:
+        self.cursor.execute("SELECT COUNT(*) FROM users WHERE refer_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+        return result[0] if result else 0
+    except Exception as e:
+        print(f"Ошибка в count_ref: {e}")
+        return 0
+
+def refka_cheks_money(self, user_id):
+    """Подсчет заработанного с рефералов"""
+    try:
+        self.cursor.execute("SELECT SUM(amount) FROM ref_stats WHERE user_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+        return result[0] if result and result[0] else 0
+    except Exception as e:
+        print(f"Ошибка в refka_cheks_money: {e}")
+        return 0
+
+def user_exists(self, user_id):
+    """Проверка существования пользователя"""
+    try:
+        self.cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+        return result is not None
+    except Exception as e:
+        print(f"Ошибка в user_exists: {e}")
+        return False
+
+def add_users(self, user_id, refer_id=None):
+    """Добавление пользователя"""
+    try:
+        if refer_id:
+            self.cursor.execute("INSERT OR IGNORE INTO users (user_id, refer_id) VALUES (?, ?)", (user_id, refer_id))
+        else:
+            self.cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
+        self.conn.commit()
+    except Exception as e:
+        print(f"Ошибка в add_users: {e}")
+
+def all_user(self):
+    """Получение всех пользователей"""
+    try:
+        self.cursor.execute("SELECT user_id FROM users")
+        return self.cursor.fetchall()
+    except Exception as e:
+        print(f"Ошибка в all_user: {e}")
+        return []
