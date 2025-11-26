@@ -51,17 +51,33 @@ class DataBase:
                              'KEF17 FLOAT NOT NULL DEFAULT 5,'
                              'KNB INTEGER NOT NULL DEFAULT 100)')
 
-    def db_urls(self):
-        with self.connection:
-            self.cur.execute('CREATE TABLE IF NOT EXISTS urls('
-                             'channals TEXT,'
-                             'checks TEXT,'
-                             'rules TEXT,'
-                             'transfer TEXT,'
-                             'command_game TEXT,'
-                             'info_stavka TEXT,'
-                             'news TEXT)')
-
+def get_URL(self):
+    try:
+        self.cursor.execute("SELECT * FROM url")
+        result = self.cursor.fetchone()
+        
+        if result and len(result) >= 7:
+            return {
+                'channals': result[0],
+                'checks': result[1], 
+                'rules': result[2],
+                'transfer': result[3],
+                'command_game': result[4],
+                'info_stavka': result[5],
+                'news': result[6]
+            }
+    except:
+        pass
+    
+    # Если что-то пошло не так, возвращаем значения по умолчанию
+    return {
+        'channals': "https://t.me/+u6NEVaY6PVxiZTYy",
+        'checks': "https://t.me/+pFqhQ8D9hPFiNWU6",
+        'rules': "https://t.me/+u6NEVaY6PVxiZTYy",
+        'transfer': "https://t.me/+pFqhQ8D9hPFiNWU6", 
+        'command_game': "/game",
+        'info_stavka': "Информация о ставках",
+        'news': "https://t.me/+u6NEVaY6PVxiZTYy"
 
     def all_stats_day(self):
         with self.connection:
@@ -169,4 +185,5 @@ class DataBase:
 
     def update_url(self, column, values):
         with self.connection:
+
             return self.cur.execute(f'UPDATE urls SET {column} = ?', (values,))
