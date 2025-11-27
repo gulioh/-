@@ -135,19 +135,31 @@ def kb_menu(user):
 
 
 def kb_admin():
-    bilder = InlineKeyboardBuilder([
-        [InlineKeyboardButton(text='📊 Статистика казино', callback_data='stats_project')],
-        [InlineKeyboardButton(text='📊 Статистика игроков', callback_data='stats_user')],
-        [InlineKeyboardButton(text='💸 Пополнить баланс казино', callback_data='add_balance')],
-        [InlineKeyboardButton(text='🎲 Фейк ставка', callback_data='settings_fake'),
-         InlineKeyboardButton(text='📁 Скачать бд', callback_data='send_db')],
-        [InlineKeyboardButton(text='📊 Коэффициенты', callback_data='kef_edit'),
-         InlineKeyboardButton(text='✍️ Рассылка', callback_data='all_message_send')],
-        [InlineKeyboardButton(text='🪨✂️📄 Подкрутка', callback_data='knb'),
-         InlineKeyboardButton(text='🔗 Ссылки', callback_data='urls')],
-        [InlineKeyboardButton(text='🗑 Удалить чеки', callback_data='deleted_checks')]
-    ])
-    return bilder.as_markup()
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text='📊 Статистика проекта', callback_data='stats_project'),
+        InlineKeyboardButton(text='👤 Статистика игрока', callback_data='stats_user')
+    )
+    builder.row(
+        InlineKeyboardButton(text='💳 Пополнить баланс казино', callback_data='add_balance'),
+        InlineKeyboardButton(text='💰 Фейк пополнение', callback_data='fake_deposit')  # ← ДОБАВЬ ЭТУ КНОПКУ
+    )
+    builder.row(
+        InlineKeyboardButton(text='👀 Настройки фейк ставок', callback_data='settings_fake'),
+        InlineKeyboardButton(text='⚙️ Коэффициенты', callback_data='kef_edit')
+    )
+    builder.row(
+        InlineKeyboardButton(text='🪨✂️📄 КНБ', callback_data='knb'),
+        InlineKeyboardButton(text='📢 Рассылка', callback_data='all_message_send')
+    )
+    builder.row(
+        InlineKeyboardButton(text='🔗 Редактировать URL', callback_data='urls'),
+        InlineKeyboardButton(text='🗑 Удалить чеки', callback_data='deleted_checks')
+    )
+    builder.row(
+        InlineKeyboardButton(text='📦 Получить БД', callback_data='send_db')
+    )
+    return builder.as_markup()
 
 
 def ikb_tip_rassilka():
@@ -276,6 +288,7 @@ def kb_urls():
         [InlineKeyboardButton(text='« Назад', callback_data=f'back_admin')]
     ])
     return bilder.as_markup()
+
 
 
 
