@@ -307,9 +307,9 @@ class DataBase:
         
         return [0, 0, 0, 0, 0, 0]
 
-   def all_stats_users(self, user_id):
-    """Получение статистики пользователя"""
-    try:
+    def all_stats_users(self, user_id):
+        """Получение статистики пользователя"""
+        try:
         # Если у вас есть таблица со статистикой пользователей, используйте её
         # Если нет, вернем заглушку
         self.cursor.execute('''
@@ -341,16 +341,15 @@ class DataBase:
         logger.error(f"Ошибка all_stats_users: {e}")
         return [0, 0, 0, 0, 0, 0]
 
-    def all_stats_users(self, user_id):
-        """Получение статистики пользователя"""
-        return [0, 0, 0, 0, 0, 0]
-
-       def update_user_stats(self, user_id, field, value):
-    """Обновление статистики пользователя"""
-    try:
-        self.cursor.execute(f"UPDATE user_stats SET {field} = {field} + ? WHERE user_id = ?", (value, user_id))
-        self.conn.commit()
-        return True
+    def update_user_stats(self, user_id, field, value):
+        """Обновление статистики пользователя"""
+        try:
+            self.cursor.execute(f"UPDATE user_stats SET {field} = {field} + ? WHERE user_id = ?", (value, user_id))
+            self.conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка update_user_stats: {e}")
+            return False
     except Exception as e:
         logger.error(f"Ошибка update_user_stats: {e}")
         return False
@@ -373,4 +372,5 @@ class DataBase:
             self.conn.close()
         except:
             pass
+
 
