@@ -100,6 +100,16 @@ class DataBase:
         except Exception as e:
             logger.error(f"Ошибка инициализации таблиц: {e}")
 
+    def get_fake_values(self):
+    """Получение значения фейк-ставок"""
+    try:
+        self.cursor.execute("SELECT fake FROM settings WHERE id = 1")
+        result = self.cursor.fetchone()
+        return result[0] if result else 0
+    except Exception as e:
+        logger.error(f"Ошибка get_fake_values: {e}")
+        return 0
+    
     def db_settings(self):
         """Инициализация настроек по умолчанию"""
         try:
@@ -397,6 +407,7 @@ def get_URL(self):
             self.conn.close()
         except:
             pass
+
 
 
 
