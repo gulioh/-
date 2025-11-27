@@ -8,6 +8,8 @@ from aiogram import F
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.utils.markdown import hlink
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import KeyboardButton
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 from loader import dp, db, bot, admin, lock
 from keybords import *
@@ -125,489 +127,68 @@ async def info_func(message:Message):
     await message.answer(f'<b>💭 Информация о проекте {hlink(title=NAME_CASINO, url=game_channel)}</b>', 
                          reply_markup=kb_info(), disable_web_page_preview=True)
 
-# ДОБАВЬТЕ ЭТИ ОБРАБОТЧИКИ ИГР
-
-@dp.message(F.text == '🎲 Играть')
-async def play_game_menu(message: Message):
-    """Меню выбора игры"""
-    balance = db.get_user_balance(message.from_user.id)
+# ФУНКЦИИ ПРОФИЛЯ
+@dp.message(F.text == '👤 Профиль')
+async def profile_handler(message: Message):
+    """Показ профиля пользователя"""
+    user_id = message.from_user.id
+    balance = db.get_user_balance(user_id)
+    ref_count = db.count_ref(user_id)
+    
+    # Получаем информацию о пользователе
+    username = f"@{message.from_user.username}" if message.from_user.username else "Не указан"
+    first_name = message.from_user.first_name or "Пользователь"
+    
+    # Получаем статистику игр
+    try:
+        user_stats = db.all_stats_users(user_id) or [0, 0, 0, 0, 0, 0]
+        total_games = user_stats[0]
+        wins = user_stats[1]
+        loses = user_stats[2]
+    except:
+        total_games = 0
+        wins = 0
+        loses = 0
+    
+    # Рассчитываем процент побед
+    win_rate = (wins / total_games * 100) if total_games > 0 else 0
+    
+    # Реферальная ссылка
+    ref_link = f"https://t.me/{NICNAME}?start={user_id}"
     
     await message.answer(
-        f'<b>🎲 Выберите игру</b>\n\n'
-        f'💰 <b>Ваш баланс:</b> {balance}$\n\n'
-        f'<b>Доступные игры:</b>\n'
-        f'🎯 <b>Кости</b> - классическая игра в кости\n'
-        f'🎰 <b>Слоты</b> - игровые автоматы\n'
-        f'⚽️ <b>Футбол</b> - ставки на гол/мимо\n'
-        f'🪨✂️📄 <b>КНБ</b> - камень-ножницы-бумага\n\n'
-        f'<i>Выберите игру:</i>',
+        f'<b>👤 Профиль игрока</b>\n\n'
+        f'🆔 <b>ID:</b> <code>{user_id}</code>\n'
+        f'👤 <b>Имя:</b> {first_name}\n'
+        f'📱 <b>Username:</b> {username}\n\n'
+        f'💰 <b>Баланс:</b> <code>{balance}$</code>\n\n'
+        f'📊 <b>Статистика игр:</b>\n'
+        f'   • 🎮 Всего игр: <code>{total_games}</code>\n'
+        f'   • ✅ Побед: <code>{wins}</code>\n'
+        f'   • ❌ Поражений: <code>{loses}</code>\n'
+        f'   • 📈 Процент побед: <code>{win_rate:.1f}%</code>\n\n'
+        f'👥 <b>Реферальная программа:</b>\n'
+        f'   • 👤 Рефералов: <code>{ref_count}</code>\n'
+        f'   • 💰 Заработано: <code>{db.refka_cheks_money(user_id)}$</code>\n\n'
+        f'🔗 <b>Ваша реферальная ссылка:</b>\n'
+        f'<code>{ref_link}</code>',
         reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="🎯 Кости", callback_data="game_dice")],
-            [InlineKeyboardButton(text="🎰 Слоты", callback_data="game_slots")],
-            [InlineKeyboardButton(text="⚽️ Футбол", callback_data="game_football")],
-            [InlineKeyboardButton(text="🪨✂️📄 КНБ", callback_data="game_knb")]
-        ]).as_markup()
+            [InlineKeyboardButton(text="📎 Поделиться ссылкой", url=f"https://t.me/share/url?url={ref_link}&text=Присоединяйся%20к%20казино!")],
+            [InlineKeyboardButton(text="💸 Пополнить баланс", callback_data="add_balance_from_profile")],
+            [InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_profile")]
+        ]).as_markup(),
+        disable_web_page_preview=True
     )
 
-@dp.callback_query(F.data == "game_dice")
-async def game_dice_menu(callback: CallbackQuery, state: FSMContext):
-    """Меню игры в кости"""
-    balance = db.get_user_balance(callback.from_user.id)
-    
-    await callback.message.edit_text(
-        f'<b>🎯 Игра в кости</b>\n\n'
-        f'💰 <b>Баланс:</b> {balance}$\n\n'
-        f'<b>Правила:</b>\n'
-        f'• Ставка на число (1-6) - коэффициент x6\n'
-        f'• Ставка на "Больше" (4-6) - коэффициент x2\n'
-        f'• Ставка на "Меньше" (1-3) - коэффициент x2\n'
-        f'• Ставка на "Чет/Нечет" - коэффициент x2\n\n'
-        f'<b>Введите сумму ставки:</b>',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="❌ Назад", callback_data="back_to_games")]
-        ]).as_markup()
-    )
-    await state.set_state(GameDice.amount)
+@dp.callback_query(F.data == "refresh_profile")
+async def refresh_profile(callback: CallbackQuery):
+    """Обновление профиля"""
+    await profile_handler(callback.message)
 
-@dp.message(GameDice.amount)
-async def process_dice_amount(message: Message, state: FSMContext):
-    """Обработка суммы ставки в кости"""
-    try:
-        amount = float(message.text)
-        balance = db.get_user_balance(message.from_user.id)
-        
-        if amount < 0.1:
-            await message.answer("❌ Минимальная ставка:0.1$")
-            return
-            
-        if amount > balance:
-            await message.answer(f"❌ Недостаточно средств. Ваш баланс: {balance}$")
-            return
-        
-        await state.update_data(amount=amount)
-        
-        await message.answer(
-            f'<b>🎯 Ставка в кости</b>\n\n'
-            f'💰 <b>Сумма:</b> {amount}$\n'
-            f'<b>Выберите тип ставки:</b>',
-            reply_markup=InlineKeyboardBuilder([
-                [InlineKeyboardButton(text="1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣", callback_data="dice_number")],
-                [InlineKeyboardButton(text="📈 Больше (4-6)", callback_data="dice_more")],
-                [InlineKeyboardButton(text="📉 Меньше (1-3)", callback_data="dice_less")],
-                [InlineKeyboardButton(text="2️⃣4️⃣6️⃣ Четное", callback_data="dice_even")],
-                [InlineKeyboardButton(text="1️⃣3️⃣5️⃣ Нечетное", callback_data="dice_odd")],
-                [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_game")]
-            ]).as_markup()
-        )
-        
-    except ValueError:
-        await message.answer("❌ Введите корректную сумму (например: 10)")
-
-@dp.callback_query(F.data == "dice_number")
-async def dice_number_bet(callback: CallbackQuery, state: FSMContext):
-    """Ставка на конкретное число в костях"""
-    data = await state.get_data()
-    amount = data['amount']
-    
-    await callback.message.edit_text(
-        f'<b>🎯 Ставка на число</b>\n\n'
-        f'💰 <b>Сумма:</b> {amount}$\n'
-        f'<b>Выберите число (1-6):</b>',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="1️⃣", callback_data="dice_bet_1"),
-             InlineKeyboardButton(text="2️⃣", callback_data="dice_bet_2"),
-             InlineKeyboardButton(text="3️⃣", callback_data="dice_bet_3")],
-            [InlineKeyboardButton(text="4️⃣", callback_data="dice_bet_4"),
-             InlineKeyboardButton(text="5️⃣", callback_data="dice_bet_5"),
-             InlineKeyboardButton(text="6️⃣", callback_data="dice_bet_6")],
-            [InlineKeyboardButton(text="❌ Назад", callback_data="game_dice")]
-        ]).as_markup()
-    )
-
-@dp.callback_query(F.data.startswith("dice_bet_"))
-async def process_dice_bet(callback: CallbackQuery, state: FSMContext):
-    """Обработка ставки в кости"""
-    data = await state.get_data()
-    amount = data['amount']
-    bet_type = callback.data.split("_")[2]  # число от 1 до 6
-    
-    # Списываем ставку с баланса
-    db.update_user_balance(callback.from_user.id, -amount)
-    
-    # Отправляем анимацию кубика
-    dice_message = await callback.message.answer_dice(emoji="🎲")
-    dice_value = dice_message.dice.value
-    
-    # Определяем результат
-    chosen_number = int(bet_type)
-    win = (dice_value == chosen_number)
-    multiplier = 6 if win else 0
-    win_amount = amount * multiplier if win else 0
-    
-    if win:
-        # Начисляем выигрыш
-        db.update_user_balance(callback.from_user.id, win_amount)
-        result_text = f"🎉 <b>ПОБЕДА!</b>\nВы выиграли: {win_amount}$"
-    else:
-        result_text = f"😞 <b>ПРОИГРЫШ</b>\nВы проиграли: {amount}$"
-    
-    await asyncio.sleep(3)  # Ждем пока анимация кубика завершится
-    
-    new_balance = db.get_user_balance(callback.from_user.id)
-    
+@dp.callback_query(F.data == "add_balance_from_profile")
+async def add_balance_from_profile(callback: CallbackQuery, state: FSMContext):
+    """Пополнение баланса из профиля"""
     await callback.message.answer(
-        f'<b>🎯 Результат игры в кости</b>\n\n'
-        f'🎲 <b>Выпало:</b> {dice_value}\n'
-        f'🎯 <b>Ваша ставка:</b> на {chosen_number}\n'
-        f'💰 <b>Сумма ставки:</b> {amount}$\n'
-        f'📈 <b>Коэффициент:</b> x{multiplier}\n\n'
-        f'{result_text}\n\n'
-        f'💰 <b>Новый баланс:</b> {new_balance}$\n\n'
-        f'<i>Сыграть еще раз?</i>',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="🎯 Сыграть еще", callback_data="game_dice")],
-            [InlineKeyboardButton(text="📊 Меню игр", callback_data="back_to_games")]
-        ]).as_markup()
-    )
-    await state.clear()
-
-@dp.callback_query(F.data == "back_to_games")
-async def back_to_games(callback: CallbackQuery, state: FSMContext):
-    """Возврат в меню игр"""
-    await state.clear()
-    await play_game_menu(callback.message)
-
-@dp.callback_query(F.data == "cancel_game")
-async def cancel_game(callback: CallbackQuery, state: FSMContext):
-    """Отмена игры"""
-    await state.clear()
-    await callback.message.edit_text("❌ Игра отменена")
-    await play_game_menu(callback.message)
-
-# === ДОБАВЬТЕ ЭТОТ КОД ДЛЯ ОСТАЛЬНЫХ ИГР ===
-
-@dp.callback_query(F.data == "game_slots")
-async def game_slots_menu(callback: CallbackQuery, state: FSMContext):
-    """Меню игры в слоты"""
-    balance = db.get_user_balance(callback.from_user.id)
-    
-    await callback.message.edit_text(
-        f'<b>🎰 Игровые автоматы</b>\n\n'
-        f'💰 <b>Баланс:</b> {balance}$\n\n'
-        f'<b>Правила:</b>\n'
-        f'• 7️⃣7️⃣7️⃣ - коэффициент x64\n'
-        f'• 🍒🍒🍒 - коэффициент x5\n'
-        f'• 🍋🍋🍋 - коэффициент x3\n'
-        f'• 💰💰💰 - коэффициент x2\n\n'
-        f'<b>Введите сумму ставки:</b>',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="❌ Назад", callback_data="back_to_games")]
-        ]).as_markup()
-    )
-    await state.set_state(GameSlots.amount)
-
-@dp.message(GameSlots.amount)
-async def process_slots_amount(message: Message, state: FSMContext):
-    """Обработка суммы ставки в слотах"""
-    try:
-        amount = float(message.text)
-        balance = db.get_user_balance(message.from_user.id)
-        
-        if amount < 0.1:
-            await message.answer("❌ Минимальная ставка: 0.1$")
-            return
-            
-        if amount > balance:
-            await message.answer(f"❌ Недостаточно средств. Ваш баланс: {balance}$")
-            return
-        
-        # Списываем ставку
-        db.update_user_balance(message.from_user.id, -amount)
-        
-        # Крутим слоты
-        slots_message = await message.answer_dice(emoji="🎰")
-        slots_value = slots_message.dice.value
-        
-        # Определяем выигрыш
-        win = False
-        multiplier = 0
-        
-        if slots_value == 64:  # 777
-            win = True
-            multiplier = 64
-        elif slots_value == 1:  # Вишни
-            win = True
-            multiplier = 5
-        elif slots_value == 22:  # Лимон
-            win = True
-            multiplier = 3
-        elif slots_value == 43:  # Банан
-            win = True
-            multiplier = 2
-        
-        win_amount = amount * multiplier if win else 0
-        
-        if win:
-            db.update_user_balance(message.from_user.id, win_amount)
-            result_text = f"🎉 <b>ДЖЕКПОТ!</b>\nВы выиграли: {win_amount}$"
-        else:
-            result_text = f"😞 <b>ПРОИГРЫШ</b>\nВы проиграли: {amount}$"
-        
-        await asyncio.sleep(3)  # Ждем анимацию
-        
-        new_balance = db.get_user_balance(message.from_user.id)
-        
-        await message.answer(
-            f'<b>🎰 Результат игры в слоты</b>\n\n'
-            f'🎰 <b>Результат:</b> {get_slots_name(slots_value)}\n'
-            f'💰 <b>Сумма ставки:</b> {amount}$\n'
-            f'📈 <b>Коэффициент:</b> x{multiplier if win else 0}\n\n'
-            f'{result_text}\n\n'
-            f'💰 <b>Новый баланс:</b> {new_balance}$\n\n'
-            f'<i>Сыграть еще раз?</i>',
-            reply_markup=InlineKeyboardBuilder([
-                [InlineKeyboardButton(text="🎰 Сыграть еще", callback_data="game_slots")],
-                [InlineKeyboardButton(text="📊 Меню игр", callback_data="back_to_games")]
-            ]).as_markup()
-        )
-        await state.clear()
-        
-    except ValueError:
-        await message.answer("❌ Введите корректную сумму (например: 10)")
-
-@dp.callback_query(F.data == "game_football")
-async def game_football_menu(callback: CallbackQuery, state: FSMContext):
-    """Меню игры в футбол"""
-    balance = db.get_user_balance(callback.from_user.id)
-    
-    await callback.message.edit_text(
-        f'<b>⚽️ Футбол</b>\n\n'
-        f'💰 <b>Баланс:</b> {balance}$\n\n'
-        f'<b>Правила:</b>\n'
-        f'• Ставка на "Гол" (3-5) - коэффициент x2\n'
-        f'• Ставка на "Мимо" (1-2) - коэффициент x2\n\n'
-        f'<b>Введите сумму ставки:</b>',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="❌ Назад", callback_data="back_to_games")]
-        ]).as_markup()
-    )
-    await state.set_state(GameFootball.amount)
-
-@dp.message(GameFootball.amount)
-async def process_football_amount(message: Message, state: FSMContext):
-    """Обработка суммы ставки в футбол"""
-    try:
-        amount = float(message.text)
-        balance = db.get_user_balance(message.from_user.id)
-        
-        if amount < 0.1:
-            await message.answer("❌ Минимальная ставка: 0.1$")
-            return
-            
-        if amount > balance:
-            await message.answer(f"❌ Недостаточно средств. Ваш баланс: {balance}$")
-            return
-        
-        await state.update_data(amount=amount)
-        
-        await message.answer(
-            f'<b>⚽️ Ставка в футбол</b>\n\n'
-            f'💰 <b>Сумма:</b> {amount}$\n'
-            f'<b>Выберите тип ставки:</b>',
-            reply_markup=InlineKeyboardBuilder([
-                [InlineKeyboardButton(text="⚽️ Гол", callback_data="football_goal")],
-                [InlineKeyboardButton(text="❌ Мимо", callback_data="football_miss")],
-                [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_game")]
-            ]).as_markup()
-        )
-        
-    except ValueError:
-        await message.answer("❌ Введите корректную сумму (например: 10)")
-
-@dp.callback_query(F.data.startswith("football_"))
-async def process_football_bet(callback: CallbackQuery, state: FSMContext):
-    """Обработка ставки в футбол"""
-    data = await state.get_data()
-    amount = data['amount']
-    bet_type = callback.data.split("_")[1]  # goal или miss
-    
-    # Списываем ставку
-    db.update_user_balance(callback.from_user.id, -amount)
-    
-    # Бросаем мяч
-    football_message = await callback.message.answer_dice(emoji="⚽️")
-    football_value = football_message.dice.value
-    
-    # Определяем результат
-    win = False
-    multiplier = 2
-    
-    if bet_type == "goal" and football_value >= 3:  # Гол
-        win = True
-    elif bet_type == "miss" and football_value <= 2:  # Мимо
-        win = True
-    else:
-        win = False
-    
-    win_amount = amount * multiplier if win else 0
-    
-    if win:
-        db.update_user_balance(callback.from_user.id, win_amount)
-        result_text = f"🎉 <b>ГОООЛ!</b>\nВы выиграли: {win_amount}$"
-    else:
-        result_text = f"😞 <b>ПРОИГРЫШ</b>\nВы проиграли: {amount}$"
-    
-    await asyncio.sleep(3)  # Ждем анимацию
-    
-    new_balance = db.get_user_balance(callback.from_user.id)
-    
-    await callback.message.answer(
-        f'<b>⚽️ Результат игры в футбол</b>\n\n'
-        f'⚽️ <b>Результат:</b> {football_value} очков\n'
-        f'🎯 <b>Ваша ставка:</b> на {bet_type}\n'
-        f'💰 <b>Сумма ставки:</b> {amount}$\n'
-        f'📈 <b>Коэффициент:</b> x{multiplier if win else 0}\n\n'
-        f'{result_text}\n\n'
-        f'💰 <b>Новый баланс:</b> {new_balance}$\n\n'
-        f'<i>Сыграть еще раз?</i>',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="⚽️ Сыграть еще", callback_data="game_football")],
-            [InlineKeyboardButton(text="📊 Меню игр", callback_data="back_to_games")]
-        ]).as_markup()
-    )
-    await state.clear()
-
-@dp.callback_query(F.data == "game_knb")
-async def game_knb_menu(callback: CallbackQuery, state: FSMContext):
-    """Меню игры в камень-ножницы-бумага"""
-    balance = db.get_user_balance(callback.from_user.id)
-    
-    await callback.message.edit_text(
-        f'<b>🪨✂️📄 Камень-Ножницы-Бумага</b>\n\n'
-        f'💰 <b>Баланс:</b> {balance}$\n\n'
-        f'<b>Правила:</b>\n'
-        f'• Победа - коэффициент x2\n'
-        f'• Ничья - возврат ставки\n'
-        f'• Проигрыш - потеря ставки\n\n'
-        f'<b>Введите сумму ставки:</b>',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="❌ Назад", callback_data="back_to_games")]
-        ]).as_markup()
-    )
-    await state.set_state(GameKNB.amount)
-
-@dp.message(GameKNB.amount)
-async def process_knb_amount(message: Message, state: FSMContext):
-    """Обработка суммы ставки в КНБ"""
-    try:
-        amount = float(message.text)
-        balance = db.get_user_balance(message.from_user.id)
-        
-        if amount < 0.1:
-            await message.answer("❌ Минимальная ставка: 0.1$")
-            return
-            
-        if amount > balance:
-            await message.answer(f"❌ Недостаточно средств. Ваш баланс: {balance}$")
-            return
-        
-        await state.update_data(amount=amount)
-        
-        await message.answer(
-            f'<b>🪨✂️📄 Ставка в КНБ</b>\n\n'
-            f'💰 <b>Сумма:</b> {amount}$\n'
-            f'<b>Выберите ваш ход:</b>',
-            reply_markup=InlineKeyboardBuilder([
-                [InlineKeyboardButton(text="🪨 Камень", callback_data="knb_rock")],
-                [InlineKeyboardButton(text="✂️ Ножницы", callback_data="knb_scissors")],
-                [InlineKeyboardButton(text="📄 Бумага", callback_data="knb_paper")],
-                [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_game")]
-            ]).as_markup()
-        )
-        
-    except ValueError:
-        await message.answer("❌ Введите корректную сумму (например: 10)")
-
-@dp.callback_query(F.data.startswith("knb_"))
-async def process_knb_bet(callback: CallbackQuery, state: FSMContext):
-    """Обработка ставки в КНБ"""
-    data = await state.get_data()
-    amount = data['amount']
-    user_choice = callback.data.split("_")[1]  # rock, scissors, paper
-    
-    # Списываем ставку
-    db.update_user_balance(callback.from_user.id, -amount)
-    
-    # Бот делает ход
-    bot_choice = random.choice(["rock", "scissors", "paper"])
-    
-    # Определяем результат
-    result = determine_knb_winner(user_choice, bot_choice)
-    multiplier = 2 if result == "win" else 0
-    win_amount = amount * multiplier if result == "win" else amount if result == "draw" else 0
-    
-    if result == "win":
-        db.update_user_balance(callback.from_user.id, win_amount)
-        result_text = f"🎉 <b>ПОБЕДА!</b>\nВы выиграли: {win_amount}$"
-    elif result == "draw":
-        db.update_user_balance(callback.from_user.id, amount)  # Возврат ставки
-        result_text = f"🤝 <b>НИЧЬЯ</b>\nСтавка возвращена"
-    else:
-        result_text = f"😞 <b>ПРОИГРЫШ</b>\nВы проиграли: {amount}$"
-    
-    await callback.message.answer(
-        f'<b>🪨✂️📄 Результат игры в КНБ</b>\n\n'
-        f'👤 <b>Ваш ход:</b> {get_knb_emoji(user_choice)}\n'
-        f'🤖 <b>Ход бота:</b> {get_knb_emoji(bot_choice)}\n'
-        f'💰 <b>Сумма ставки:</b> {amount}$\n'
-        f'📈 <b>Коэффициент:</b> x{multiplier}\n\n'
-        f'{result_text}\n\n'
-        f'<i>Сыграть еще раз?</i>',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="🪨✂️📄 Сыграть еще", callback_data="game_knb")],
-            [InlineKeyboardButton(text="📊 Меню игр", callback_data="back_to_games")]
-        ]).as_markup()
-    )
-    await state.clear()
-
-# ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ИГР
-
-def get_slots_name(value):
-    """Получение названия комбинации слотов"""
-    if value == 64: return "7️⃣7️⃣7️⃣"
-    elif value == 1: return "🍒🍒🍒" 
-    elif value == 22: return "🍋🍋🍋"
-    elif value == 43: return "💰💰💰"
-    else: return "Проигрыш"
-
-def get_knb_emoji(choice):
-    """Получение emoji для КНБ"""
-    if choice == "rock": return "🪨"
-    elif choice == "scissors": return "✂️"
-    elif choice == "paper": return "📄"
-    return ""
-
-def determine_knb_winner(user, bot):
-    """Определение победителя в КНБ"""
-    if user == bot:
-        return "draw"
-    elif (user == "rock" and bot == "scissors") or \
-         (user == "scissors" and bot == "paper") or \
-         (user == "paper" and bot == "rock"):
-        return "win"
-    else:
-        return "lose"
-
-# === КОНЕЦ КОДА ДЛЯ ИГР ===
-
-# АДМИНСКИЕ ФУНКЦИИ (ваш существующий код)
-
-# ДОБАВЬТЕ ОБРАБОТЧИК ПОПОЛНЕНИЯ БАЛАНСА
-
-@dp.message(F.text == '💸 Пополнить баланс')
-async def add_balance_user(message: Message, state: FSMContext):
-    """Пополнение баланса через Crypto Bot"""
-    await message.answer(
         '<b>💸 Пополнение баланса</b>\n\n'
         'Введите сумму пополнения в $ (например: 10):',
         reply_markup=ReplyKeyboardBuilder([
@@ -615,88 +196,48 @@ async def add_balance_user(message: Message, state: FSMContext):
         ]).as_markup(resize_keyboard=True)
     )
     await state.set_state(AddBalanceUser.amount)
+    await callback.answer()
 
-@dp.message(AddBalanceUser.amount)
-async def process_add_balance(message: Message, state: FSMContext):
-    """Обработка суммы пополнения"""
-    try:
-        amount = float(message.text)
-        if amount < 1:
-            await message.answer("❌ Минимальная сумма пополнения: 1$")
-            return
-        
-        # Создаем инвойс через Crypto Bot
-        invoice = await crypto.create_invoice(
-            asset='USDT',
-            amount=amount,
-            description=f'Пополнение баланса для пользователя {message.from_user.id}'
-        )
-        
-        # Добавляем транзакцию в БД
-        db.add_transaction(
-            user_id=message.from_user.id,
-            transaction_type='deposit',
-            amount=amount,
-            status='pending',
-            description=f'Invoice: {invoice.invoice_id}'
-        )
-        
-        await message.answer(
-            f'<b>💸 Счет на оплату</b>\n\n'
-            f'<b>Сумма:</b> {amount}$\n'
-            f'<b>Статус:</b> Ожидание оплаты\n\n'
-            f'Оплатите счет в течение 15 минут',
-            reply_markup=InlineKeyboardBuilder([
-                [InlineKeyboardButton(text="💳 Оплатить", url=invoice.bot_invoice_url)],
-                [InlineKeyboardButton(text="✅ Проверить оплату", callback_data=f"check_payment_{invoice.invoice_id}")]
-            ]).as_markup()
-        )
-        await state.clear()
-        
-    except ValueError:
-        await message.answer("❌ Введите корректную сумму (например: 10)")
-    except Exception as e:
-        await message.answer(f"❌ Ошибка создания счета: {e}")
-
-@dp.callback_query(F.data == "game_dice")
-async def game_dice_menu(callback: CallbackQuery, state: FSMContext):
-    """Меню игры в кости"""
-    await callback.message.edit_text(
-        '<b>🎯 Игра в кости</b>\n\n'
-        'Правила:\n'
-        '• Ставка на число (1-6) - коэффициент x6\n'
-        '• Ставка на "Больше" (4-6) - коэффициент x2\n'
-        '• Ставка на "Меньше" (1-3) - коэффициент x2\n'
-        '• Ставка на "Чет/Нечет" - коэффициент x2\n\n'
-        'Введите сумму ставки:',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="❌ Назад", callback_data="back_to_games")]
-        ]).as_markup()
-    )
-    await state.set_state(GameDice.amount)
-
-
+# АДМИН ПАНЕЛЬ
 @dp.message(F.text == '👑 Админка')
 async def admin_panel(message: Message):
-    """Проверка админских прав и показ админки"""
+    """Админка из сообщения"""
     if message.from_user.id not in ADMIN:
         await message.answer("❌ У вас нет доступа к админ панели")
         return
     
     try:
-        balance_data = await crypto.get_balance()
-        balance = balance_data[0].available if balance_data else 0
+        # Получаем баланс казино
+        casino_balance = db.get_casino_balance()
     except:
-        balance = 0
+        casino_balance = 0
         
     await message.answer(
         text='<b>👑 Админ панель</b>\n\n'
-             f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
+             f'💰 <b>Баланс казино:</b> <code>{casino_balance}$</code>\n\n'
              f'<i>Выберите действие:</i>',
         reply_markup=kb_admin()
     )
 
-# ОБНОВИТЕ ВСЕ АДМИНСКИЕ ОБРАБОТЧИКИ - добавьте проверку прав:
+@dp.callback_query(F.data == 'back_admin')
+async def back_admin_func(callback: CallbackQuery, state: FSMContext):
+    """Возврат в админ меню из callback"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await state.clear()
+    try:
+        casino_balance = db.get_casino_balance()
+    except:
+        casino_balance = 0
+        
+    await callback.message.edit_text(
+        text='<b>👑 Админ панель</b>\n\n'
+             f'💰 <b>Баланс казино:</b> <code>{casino_balance}$</code>\n\n'
+             f'<i>Выберите действие:</i>',
+        reply_markup=kb_admin()
+    )
 
 @dp.callback_query(F.data == 'stats_project')
 async def stats_adm(callback: CallbackQuery):
@@ -707,81 +248,115 @@ async def stats_adm(callback: CallbackQuery):
     
     try:
         stats = db.all_stats() or [0, 0, 0, 0, 0, 0]
-        balance_data = await crypto.get_balance()
-        balance = balance_data[0].available if balance_data else 0
+        casino_balance = db.get_casino_balance()
         info_day = db.all_stats_day() or [0, 0, 0, 0, 0]
+        all_users = db.all_user()
     except:
         stats = [0, 0, 0, 0, 0, 0]
-        balance = 0
+        casino_balance = 0
         info_day = [0, 0, 0, 0, 0]
-        
-    # ... остальной код статистики
-
-@dp.callback_query(F.data == 'stats_user')
-async def stats_adm(callback: CallbackQuery, state: FSMContext):
-    """Статистика пользователя"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    await callback.message.edit_text('<b>Введите id игрока</b>', reply_markup=kb_back_admin())
-    await state.set_state(UserStats.user_id)
-
-@dp.callback_query(F.data == 'add_balance')
-async def stats_adm(callback: CallbackQuery, state: FSMContext):
-    """Пополнение баланса казино"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    await callback.message.edit_text(text='<b>Введите сумму в $</b>', reply_markup=kb_back_admin())
-    await state.set_state(AddBalanceCasino.amount)
-
-@dp.callback_query(F.data == 'settings_fake')
-async def fake_game_adm(callback: CallbackQuery):
-    """Настройки фейк ставок"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    try:
-        values_fake = db.get_fake_values()
-    except:
-        values_fake = 0
+        all_users = []
         
     await callback.message.edit_text(
-        text='<b>👀 Настройки фейк ставок</b>\n\n'
-             f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.\n\n'
-             f'<i>Включить/выключить фейк ставки:</i>', 
-        reply_markup=kb_fake_switch(values_fake)
+        text=f'<b>📊 Статистика проекта</b>\n\n'
+             f'👥 <b>Всего пользователей:</b> <code>{len(all_users)}</code>\n'
+             f'🎮 <b>Всего игр:</b> <code>{stats[1]}</code>\n'
+             f'✅ <b>Побед:</b> <code>{stats[2]}</code>\n'
+             f'❌ <b>Поражений:</b> <code>{stats[3]}</code>\n'
+             f'💸 <b>Выплаты:</b> <code>{stats[4]}$</code>\n'
+             f'💰 <b>Доход:</b> <code>{stats[5]}$</code>\n\n'
+             f'<b>📈 За сегодня:</b>\n'
+             f'🎮 <b>Игры:</b> <code>{info_day[0]}</code>\n'
+             f'✅ <b>Побед:</b> <code>{info_day[1]}</code>\n'
+             f'❌ <b>Поражений:</b> <code>{info_day[2]}</code>\n'
+             f'💸 <b>Выплаты:</b> <code>{info_day[3]}$</code>\n'
+             f'💰 <b>Доход:</b> <code>{info_day[4]}$</code>\n\n'
+             f'💳 <b>Баланс казино:</b> <code>{casino_balance}$</code>',
+        reply_markup=kb_back_admin()
     )
 
-@dp.callback_query(F.data.startswith('fake'))
-async def fake_switch_func(callback: CallbackQuery):
-    """Переключение фейк ставок"""
+@dp.callback_query(F.data == 'fake_deposit')
+async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
+    """Меню фейкового пополнения"""
     if callback.from_user.id not in ADMIN:
         await callback.answer("❌ Нет доступа", show_alert=True)
         return
     
-    values_fake = callback.data.split('|')[1]
-    try:
-        if int(values_fake):
-            db.update_fake(0)
-        if int(values_fake) == 0:
-            db.update_fake(1)
-
-        values_fake = db.get_fake_values()
-    except:
-        values_fake = 0
-        
     await callback.message.edit_text(
-        text='<b>👀 Настройки фейк ставок</b>\n\n'
-             f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.\n\n'
-             f'<i>Включить/выключить фейк ставки:</i>',
-        reply_markup=kb_fake_switch(int(values_fake))
+        text='<b>💰 Фейк пополнение баланса</b>\n\n'
+             'Введите ID пользователя:',
+        reply_markup=kb_back_admin()
     )
-    await callback.answer('✅ Настройки обновлены')
+    await state.set_state(FakeDeposit.user_id)
 
+@dp.message(FakeDeposit.user_id)
+async def process_fake_deposit_user_id(message: Message, state: FSMContext):
+    """Обработка ID пользователя для фейк пополнения"""
+    try:
+        user_id = int(message.text)
+        await state.update_data(user_id=user_id)
+        
+        await message.answer(
+            '<b>💰 Фейк пополнение баланса</b>\n\n'
+            f'Пользователь: <code>{user_id}</code>\n'
+            'Введите сумму пополнения ($):',
+            reply_markup=kb_back_admin()
+        )
+        await state.set_state(FakeDeposit.amount)
+        
+    except ValueError:
+        await message.answer('❌ Введите корректный ID пользователя (число)')
+
+@dp.message(FakeDeposit.amount)
+async def process_fake_deposit_amount(message: Message, state: FSMContext):
+    """Обработка суммы фейк пополнения"""
+    try:
+        amount = float(message.text)
+        data = await state.get_data()
+        user_id = data['user_id']
+        
+        if amount <= 0:
+            await message.answer('❌ Сумма должна быть больше 0')
+            return
+        
+        # Пополняем баланс
+        db.update_user_balance(user_id, amount)
+        
+        # Добавляем запись в транзакции
+        db.add_transaction(
+            user_id=user_id,
+            transaction_type='fake_deposit',
+            amount=amount,
+            status='completed',
+            description=f'Фейк пополнение от админа {message.from_user.id}'
+        )
+        
+        await message.answer(
+            f'✅ <b>Баланс пользователя {user_id} пополнен на {amount}$</b>\n\n'
+            f'💳 <b>Сумма:</b> {amount}$\n'
+            f'👤 <b>Пользователь:</b> <code>{user_id}</code>\n'
+            f'🆔 <b>Админ:</b> <code>{message.from_user.id}</code>',
+            reply_markup=kb_back_admin()
+        )
+        
+        # Пытаемся уведомить пользователя
+        try:
+            await bot.send_message(
+                user_id,
+                f'🎉 <b>Ваш баланс пополнен на {amount}$</b>\n\n'
+                f'💰 <b>Сумма:</b> {amount}$\n'
+                f'📝 <b>Тип:</b> Административное пополнение\n\n'
+                f'💳 <b>Текущий баланс:</b> {db.get_user_balance(user_id)}$'
+            )
+        except:
+            pass
+            
+        await state.clear()
+        
+    except ValueError:
+        await message.answer('❌ Введите корректную сумму')
+
+# Другие админ функции
 @dp.callback_query(F.data == 'kef_edit')
 async def kef_edit_adm(callback: CallbackQuery):
     """Редактирование коэффициентов"""
@@ -864,27 +439,6 @@ async def add_card(callback: CallbackQuery):
     except Exception as e:
         await callback.answer(f"❌ Ошибка отправки БД: {e}", show_alert=True)
 
-@dp.callback_query(F.data == 'back_admin')
-async def back_admin_func(callback: CallbackQuery, state: FSMContext):
-    """Возврат в админ меню"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    await state.clear()
-    try:
-        balance_data = await crypto.get_balance()
-        balance = balance_data[0].available if balance_data else 0
-    except:
-        balance = 0
-        
-    await callback.message.edit_text(
-        text='<b>👑 Админ панель</b>\n\n'
-             f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
-             f'<i>Выберите действие:</i>',
-        reply_markup=kb_admin()
-    )
-
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
     await set_default_commands()
@@ -896,8 +450,3 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
-
-
-
-
-
