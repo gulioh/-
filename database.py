@@ -8,15 +8,17 @@ class DataBase:
         self.conn = sqlite3.connect(db_file, check_same_thread=False)
         self.cursor = self.conn.cursor()
         logger.info("База данных подключена")
+        self.db_start()  # Автоматически инициализируем таблицы при создании
 
     def db_start(self):
         """Инициализация всех таблиц"""
         try:
-            # Таблица пользователей
+            # Таблица пользователей С БАЛАНСОМ
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     user_id INTEGER PRIMARY KEY,
                     refer_id INTEGER,
+                    balance REAL DEFAULT 0,
                     reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -69,8 +71,27 @@ class DataBase:
                 )
             ''')
             
+            # Таблица транзакций для пополнений
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    type TEXT,
+                    amount REAL,
+                    status TEXT,
+                    description TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
             self.conn.commit()
             logger.info("Таблицы инициализированы")
+            
+            # Инициализируем базовые данные
+            self.db_settings()
+            self.db_stats() 
+            self.db_urls()
+            
         except Exception as e:
             logger.error(f"Ошибка инициализации таблиц: {e}")
 
@@ -93,13 +114,46 @@ class DataBase:
     def db_urls(self):
         """Инициализация URL"""
         try:
-            self.cursor.execute('''
-                INSERT OR IGNORE INTO url (id) VALUES (1)
-            ''')
+            self.cursor.execute('INSERT OR IGNORE INTO url (id) VALUES (1)')
             self.conn.commit()
         except Exception as e:
             logger.error(f"Ошибка инициализации URL: {e}")
 
+    # НОВЫЕ МЕТОДЫ ДЛЯ БАЛАНСА
+    def get_user_balance(self, user_id):
+        """Получение баланса пользователя"""
+        try:
+            self.cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+            result = self.cursor.fetchone()
+            return result[0] if result else 0
+        except Exception as e:
+            logger.error(f"Ошибка get_user_balance: {e}")
+            return 0
+
+    def update_user_balance(self, user_id, amount):
+        """Обновление баланса пользователя"""
+        try:
+            self.cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
+            self.conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка update_user_balance: {e}")
+            return False
+
+    def add_transaction(self, user_id, transaction_type, amount, status, description):
+        """Добавление транзакции"""
+        try:
+            self.cursor.execute(
+                "INSERT INTO transactions (user_id, type, amount, status, description) VALUES (?, ?, ?, ?, ?)",
+                (user_id, transaction_type, amount, status, description)
+            )
+            self.conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка add_transaction: {e}")
+            return False
+
+    # СУЩЕСТВУЮЩИЕ МЕТОДЫ
     def user_exists(self, user_id):
         """Проверка существования пользователя"""
         try:
@@ -163,7 +217,6 @@ class DataBase:
         except Exception as e:
             logger.error(f"Ошибка get_URL: {e}")
         
-        # ВСЕ значения должны быть валидными URL
         return {
             'channals': "https://t.me/+u6NEVaY6PVxiZTYy",
             'checks': "https://t.me/+pFqhQ8D9hPFiNWU6",
@@ -280,31 +333,3 @@ class DataBase:
             self.conn.close()
         except:
             pass
-
-def get_user_balance(self, user_id):
-    """Получение баланса пользователя"""
-    try:
-        self.cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
-        result = self.cursor.fetchone()
-        return result[0] if result else 0
-    except:
-        return 0
-
-def update_user_balance(self, user_id, amount):
-    """Обновление баланса пользователя"""
-    try:
-        self.cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
-        self.conn.commit()
-        return True
-    except:
-        return False
-
-# В функции db_start() обновите таблицу users:
-self.cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        user_id INTEGER PRIMARY KEY,
-        refer_id INTEGER,
-        balance REAL DEFAULT 0,
-        reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-''')
