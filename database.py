@@ -300,7 +300,7 @@ def get_URL(self):
         except Exception as e:
             logger.error(f"Ошибка update_fake: {e}")
 
-       def all_stats(self):
+    def all_stats(self):  # ← ЗДЕСЬ ДОЛЖНО БЫТЬ 4 ПРОБЕЛА ПЕРЕД def
         """Получение общей статистики казино"""
         try:
             self.cursor.execute("SELECT * FROM stats WHERE id = 1")
@@ -319,22 +319,6 @@ def get_URL(self):
         except Exception as e:
             logger.error(f"Ошибка all_stats: {e}")
             return [1, 0, 0, 0, 0, 0, 0]
-
-    def all_stats_day(self):
-        """Получение дневной статистики"""
-        try:
-            # Создаем таблицу для дневной статистики если её нет
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS stats_day (
-                    id INTEGER PRIMARY KEY,
-                    date TEXT DEFAULT CURRENT_DATE,
-                    games INTEGER DEFAULT 0,
-                    wins INTEGER DEFAULT 0,
-                    loses INTEGER DEFAULT 0,
-                    income REAL DEFAULT 0,
-                    payouts REAL DEFAULT 0
-                )
-            ''')
             
             today = datetime.now().strftime('%Y-%m-%d')
             self.cursor.execute("SELECT * FROM stats_day WHERE date = ?", (today,))
@@ -413,6 +397,7 @@ def get_URL(self):
             self.conn.close()
         except:
             pass
+
 
 
 
