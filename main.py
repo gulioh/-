@@ -8,6 +8,8 @@ from aiogram import F
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.utils.markdown import hlink
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import KeyboardButton
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 from loader import dp, db, bot, admin, lock
 from keybords import *
@@ -198,12 +200,6 @@ async def add_balance_from_profile(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 # === КОНЕЦ ФУНКЦИЙ ПРОФИЛЯ ===
-
-# ДАЛЕЕ ИДУТ ИГРОВЫЕ ФУНКЦИИ
-@dp.message(F.text == '🎲 Играть')
-async def play_game_menu(message: Message):
-    # ... ваш существующий код игр
-
 # ДОБАВЬТЕ ЭТИ ОБРАБОТЧИКИ ИГР
 
 @dp.message(F.text == '🎲 Играть')
@@ -1042,3 +1038,4 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
