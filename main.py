@@ -1,6 +1,7 @@
 import datetime
 import asyncio
 import random
+import logging
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, FSInputFile, ReplyKeyboardMarkup, KeyboardButton
@@ -8,7 +9,6 @@ from aiogram import F
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.utils.markdown import hlink
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
-from aiogram import html
 
 from loader import dp, db, bot, admin, lock
 from keybords import *
@@ -711,4 +711,5 @@ async def game_knb_menu(callback: CallbackQuery, state: FSMContext):
                 [InlineKeyboardButton(text="❌ Назад", callback_data="back_to_games")]
             ]).as_markup()
         )
-        await
+        await state.set_state(GameKNB.amount)
+    except
