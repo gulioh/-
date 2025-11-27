@@ -5,6 +5,15 @@ class DataBase:
         self.connection = sq.connect(db_file)
         self.cur = self.connection.cursor()
 
+    def db_urls(self):
+    """Инициализация URL"""
+    try:
+        self.cursor.execute('INSERT OR IGNORE INTO url (id) VALUES (1)')
+        self.conn.commit()
+        logger.info("✅ URL таблица инициализирована")
+    except Exception as e:
+        logger.error(f"❌ Ошибка инициализации URL: {e}")
+
     def db_start(self):
         with self.connection:
             self.cur.execute('CREATE TABLE IF NOT EXISTS users('
@@ -238,3 +247,4 @@ def all_user(self):
     except Exception as e:
         print(f"Ошибка в all_user: {e}")
         return []
+
