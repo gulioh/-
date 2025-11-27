@@ -30,3 +30,6 @@ class AdminPhotoText(StatesGroup):
 
 class NewUrlAdmin(StatesGroup):
     url = State()
+
+class AddBalanceUser(StatesGroup):
+    amount = State()
