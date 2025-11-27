@@ -4,7 +4,17 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiocryptopay import CryptoPay, Networks
+
+# Попробуем импортировать aiocryptopay с правильными именами
+try:
+    from aiocryptopay import AioCryptoPay, Networks
+    CRYPTO_AVAILABLE = True
+except ImportError as e:
+    print(f"❌ aiocryptopay не установлен: {e}")
+    AioCryptoPay = None
+    Networks = None
+    CRYPTO_AVAILABLE = False
+
 from database import DataBase
 
 # Настройка логирования
@@ -22,18 +32,26 @@ dp = Dispatcher(storage=storage)
 db = DataBase('database.db')
 
 # Инициализация Crypto Pay
-try:
-    crypto = CryptoPay(
-        token=CRYPTO_PAY_TOKEN,
-        network=Networks.MAIN_NET  # Используйте Networks.TEST_NET для тестов
-    )
-    print("✅ Crypto Pay инициализирован")
-except Exception as e:
-    print(f"❌ Ошибка инициализации Crypto Pay: {e}")
-    crypto = None
+crypto = None
+if CRYPTO_AVAILABLE and CRYPTO_PAY_TOKEN:
+    try:
+        crypto = AioCryptoPay(
+            token=CRYPTO_PAY_TOKEN,
+            network=Networks.MAIN_NET  # Используйте Networks.TEST_NET для тестов
+        )
+        print("✅ Crypto Pay инициализирован")
+    except Exception as e:
+        print(f"❌ Ошибка инициализации Crypto Pay: {e}")
+        crypto = None
+else:
+    print("⚠️ Crypto Pay отключен (нет токена или библиотеки)")
 
 # Импорт административного роутера
-from admin import admin
+try:
+    from admin import admin
+except ImportError:
+    print("⚠️ Админ модуль не найден")
+    admin = None
 
 # Блокировка для предотвращения гонки условий
 lock = asyncio.Lock()
