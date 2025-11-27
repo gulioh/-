@@ -199,34 +199,34 @@ class DataBase:
             logger.error(f"Ошибка all_user: {e}")
             return []
 
-    def get_URL(self):
-        """Получение всех URL"""
-        try:
-            self.cursor.execute("SELECT * FROM url WHERE id = 1")
-            result = self.cursor.fetchone()
-            if result:
-                return {
-                    'channals': result[1],
-                    'checks': result[2],
-                    'rules': result[3],
-                    'transfer': result[4],
-                    'command_game': result[5],
-                    'info_stavka': result[6],
-                    'news': result[7]
-                }
-        except Exception as e:
-            logger.error(f"Ошибка get_URL: {e}")
-        
-        return {
-            'channals': "https://t.me/+u6NEVaY6PVxiZTYy",
-            'checks': "https://t.me/+pFqhQ8D9hPFiNWU6",
-            'rules': "https://t.me/+u6NEVaY6PVxiZTYy",
-            'transfer': "https://t.me/+pFqhQ8D9hPFiNWU6", 
-            'command_game': "https://t.me/+u6NEVaY6PVxiZTYy",
-            'info_stavka': "https://t.me/+u6NEVaY6PVxiZTYy",
-            'news': "https://t.me/+u6NEVaY6PVxiZTYy"                                                                        
-        }
-
+def get_URL(self):
+    """Получение всех URL"""
+    try:
+        self.cursor.execute("SELECT * FROM url WHERE id = 1")
+        result = self.cursor.fetchone()
+        if result:
+            return {
+                'channals': result[1],
+                'checks': result[2], 
+                'rules': result[3],
+                'transfer': result[4],
+                'command_game': result[5],
+                'info_stavka': result[6],
+                'news': result[7]
+            }
+    except Exception as e:
+        logger.error(f"Ошибка get_URL: {e}")
+    
+    # ЗАМЕНИ ЭТИ ССЫЛКИ НА СВОИ:
+    return {
+        'channals': "https://t.me/+u6NEVaY6PVxiZTYy",
+        'checks': "https://t.me/+pFqhQ8D9hPFiNWU6",
+        'rules': "https://t.me/+u6NEVaY6PVxiZTYy", 
+        'transfer': "https://t.me/+pFqhQ8D9hPFiNWU6",
+        'command_game': "https://t.me/+u6NEVaY6PVxiZTYy",
+        'info_stavka': "https://t.me/+u6NEVaY6PVxiZTYy",
+        'news': "https://t.me/+u6NEVaY6PVxiZTYy"
+    }
     def update_url(self, column, values):
         """Обновление URL"""
         try:
@@ -366,6 +366,7 @@ class DataBase:
             self.conn.close()
         except:
             pass
+
 
 
 
