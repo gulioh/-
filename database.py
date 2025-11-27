@@ -1,408 +1,240 @@
-import sqlite3
-import logging
-
-logger = logging.getLogger(__name__)
+import sqlite3 as sq
 
 class DataBase:
     def __init__(self, db_file):
-        self.conn = sqlite3.connect(db_file, check_same_thread=False)
-        self.cursor = self.conn.cursor()
-        logger.info("База данных подключена")
-        self.db_start()
+        self.connection = sq.connect(db_file)
+        self.cur = self.connection.cursor()
 
     def db_start(self):
-        """Инициализация всех таблиц"""
-        try:
-            # Таблица пользователей
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    user_id INTEGER PRIMARY KEY,
-                    refer_id INTEGER,
-                    balance REAL DEFAULT 0,
-                    reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            
-            # Таблица настроек
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS settings (
-                    id INTEGER PRIMARY KEY,
-                    fake INTEGER DEFAULT 0
-                )
-            ''')
-            
-            # Таблица коэффициентов
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS kef (
-                    id INTEGER PRIMARY KEY,
-                    KEF1 REAL DEFAULT 2.0, KEF2 REAL DEFAULT 6.0, KEF3 REAL DEFAULT 2.0,
-                    KEF4 REAL DEFAULT 4.0, KEF5 REAL DEFAULT 2.0, KEF6 REAL DEFAULT 64.0,
-                    KEF7 REAL DEFAULT 5.0, KEF8 REAL DEFAULT 3.0, KEF9 REAL DEFAULT 2.0,
-                    KEF10 REAL DEFAULT 2.0, KEF11 REAL DEFAULT 2.0, KEF12 REAL DEFAULT 2.0,
-                    KEF13 REAL DEFAULT 2.0, KEF14 REAL DEFAULT 5.0, KEF15 REAL DEFAULT 2.0,
-                    KEF16 REAL DEFAULT 2.0, KEF17 REAL DEFAULT 14.0
-                )
-            ''')
-            
-            # Таблица URL
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS url (
-                    id INTEGER PRIMARY KEY,
-                    channals TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
-                    checks TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
-                    rules TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
-                    transfer TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
-                    command_game TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
-                    info_stavka TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
-                    news TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy"
-                )
-            ''')
-            
-            # Таблица статистики
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS stats (
-                    id INTEGER PRIMARY KEY,
-                    games INTEGER DEFAULT 0,
-                    wins INTEGER DEFAULT 0,
-                    loses INTEGER DEFAULT 0,
-                    payouts REAL DEFAULT 0,
-                    income REAL DEFAULT 0,
-                    users_count INTEGER DEFAULT 0
-                )
-            ''')
-            
-            # Таблица транзакций
-          # В функции db_start() обновите таблицу users:
-self.cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        user_id INTEGER PRIMARY KEY,
-        refer_id INTEGER,
-        balance REAL DEFAULT 0,
-        reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-''')
-                )
-            ''')
-            
-            # Таблица статистики пользователей
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_stats (
-                    user_id INTEGER PRIMARY KEY,
-                    total_games INTEGER DEFAULT 0,
-                    wins INTEGER DEFAULT 0,
-                    loses INTEGER DEFAULT 0,
-                    total_bet REAL DEFAULT 0,
-                    total_win REAL DEFAULT 0,
-                    ref_earnings REAL DEFAULT 0
-                )
-            ''')
-            
-            self.conn.commit()
-            logger.info("Таблицы инициализированы")
-            
-            # Инициализируем базовые данные
-            self.db_settings()
-            self.db_stats() 
-            self.db_urls()
-            
-        except Exception as e:
-            logger.error(f"Ошибка инициализации таблиц: {e}")
-
-    def db_settings(self):
-        """Инициализация настроек по умолчанию"""
-        try:
-            self.cursor.execute("INSERT OR IGNORE INTO settings (id, fake) VALUES (1, 0)")
-            self.cursor.execute("INSERT OR IGNORE INTO kef (id) VALUES (1)")
-            self.conn.commit()
-        except Exception as e:
-            logger.error(f"Ошибка инициализации настроек: {e}")
+        with self.connection:
+            self.cur.execute('CREATE TABLE IF NOT EXISTS users('
+                             'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                             'user_id INTEGER NOT NULL,'
+                             'count_play INTEGER NOT NULL DEFAULT 0,'
+                             'win INTEGER NOT NULL DEFAULT 0,'
+                             'lose INTEGER NOT NULL DEFAULT 0,'
+                             'balance_win FLOAT NOT NULL DEFAULT 0,'
+                             'balance_lose FLOAT NOT NULL DEFAULT 0,'
+                             'refere_id INTEGER,'
+                             'balance_ref INTEGER NOT NULL DEFAULT 0,'
+                             'UNIQUE(user_id))')
 
     def db_stats(self):
-        """Инициализация статистики"""
-        try:
-            self.cursor.execute("INSERT OR IGNORE INTO stats (id) VALUES (1)")
-            self.conn.commit()
-        except Exception as e:
-            logger.error(f"Ошибка инициализации статистики: {e}")
+        with self.connection:
+            self.cur.execute('CREATE TABLE IF NOT EXISTS stats('
+                             'count_play INTEGER NOT NULL DEFAULT 0,'
+                             'win INTEGER NOT NULL DEFAULT 0,'
+                             'lose INTEGER NOT NULL DEFAULT 0,'
+                             'balance_win FLOAT NOT NULL DEFAULT 0,'
+                             'balance_lose FLOAT NOT NULL DEFAULT 0)')
 
-    def db_urls(self):
-        """Инициализация URL"""
-        try:
-            self.cursor.execute('INSERT OR IGNORE INTO url (id) VALUES (1)')
-            self.conn.commit()
-        except Exception as e:
-            logger.error(f"Ошибка инициализации URL: {e}")
+    def db_settings(self):
+        with self.connection:
+            self.cur.execute('CREATE TABLE IF NOT EXISTS settings('
+                             'fake INTEGER NOT NULL DEFAULT 0,'
+                             'KEF1 FLOAT NOT NULL DEFAULT 1.7,'
+                             'KEF2 FLOAT NOT NULL DEFAULT 1.3,'
+                             'KEF3 FLOAT NOT NULL DEFAULT 1.7,'
+                             'KEF4 FLOAT NOT NULL DEFAULT 2.7,'
+                             'KEF5 FLOAT NOT NULL DEFAULT 1.7,'
+                             'KEF6 FLOAT NOT NULL DEFAULT 3,'
+                             'KEF7 FLOAT NOT NULL DEFAULT 5,'
+                             'KEF8 FLOAT NOT NULL DEFAULT 4,'
+                             'KEF9 FLOAT NOT NULL DEFAULT 7,'
+                             'KEF10 FLOAT NOT NULL DEFAULT 1.7,'
+                             'KEF11 FLOAT NOT NULL DEFAULT 1.2,'
+                             'KEF12 FLOAT NOT NULL DEFAULT 1.2,'
+                             'KEF13 FLOAT NOT NULL DEFAULT 1.7,'
+                             'KEF14 FLOAT NOT NULL DEFAULT 3,'
+                             'KEF15 FLOAT NOT NULL DEFAULT 2.5,'
+                             'KEF16 FLOAT NOT NULL DEFAULT 1.7,'
+                             'KEF17 FLOAT NOT NULL DEFAULT 5,'
+                             'KNB INTEGER NOT NULL DEFAULT 100)')
 
-    # МЕТОДЫ ДЛЯ БАЛАНСА
- def get_user_balance(self, user_id):
-    """Получение баланса пользователя"""
+def get_URL(self):
     try:
-        self.cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+        self.cursor.execute("SELECT * FROM url")
         result = self.cursor.fetchone()
-        return result[0] if result else 0
+        
+        if result and len(result) >= 7:
+            return {
+                'channals': result[0],
+                'checks': result[1], 
+                'rules': result[2],
+                'transfer': result[3],
+                'command_game': result[4],
+                'info_stavka': result[5],
+                'news': result[6]
+            }
     except:
-        return 0
-
-def update_user_balance(self, user_id, amount):
-    """Обновление баланса пользователя"""
-    try:
-        self.cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
-        self.conn.commit()
-        return True
-    except:
-        return False
-
-    def add_transaction(self, user_id, transaction_type, amount, status, description):
-        """Добавление транзакции"""
-        try:
-            self.cursor.execute(
-                "INSERT INTO transactions (user_id, type, amount, status, description) VALUES (?, ?, ?, ?, ?)",
-                (user_id, transaction_type, amount, status, description)
-            )
-            self.conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"Ошибка add_transaction: {e}")
-            return False
-
-    def update_user_stats(self, user_id, field, value):
-        """Обновление статистики пользователя"""
-        try:
-            # Сначала проверяем существует ли запись
-            self.cursor.execute("SELECT 1 FROM user_stats WHERE user_id = ?", (user_id,))
-            if not self.cursor.fetchone():
-                # Создаем новую запись
-                self.cursor.execute(
-                    "INSERT INTO user_stats (user_id) VALUES (?)", (user_id,)
-                )
-            
-            # Обновляем поле
-            if field in ['total_games', 'wins', 'loses']:
-                self.cursor.execute(f"UPDATE user_stats SET {field} = {field} + ? WHERE user_id = ?", (value, user_id))
-            elif field in ['total_bet', 'total_win']:
-                self.cursor.execute(f"UPDATE user_stats SET {field} = {field} + ? WHERE user_id = ?", (value, user_id))
-            
-            self.conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"Ошибка update_user_stats: {e}")
-            return False
-
-    def all_stats_users(self, user_id):
-        """Получение статистики пользователя"""
-        try:
-            self.cursor.execute("SELECT total_games, wins, loses, total_bet, total_win, ref_earnings FROM user_stats WHERE user_id = ?", (user_id,))
-            result = self.cursor.fetchone()
-            if result:
-                return result
-        except Exception as e:
-            logger.error(f"Ошибка all_stats_users: {e}")
-        
-        return [0, 0, 0, 0, 0, 0]
-
-    def refka_cheks_money(self, user_id):
-        """Заработок с рефералов"""
-        try:
-            self.cursor.execute("SELECT ref_earnings FROM user_stats WHERE user_id = ?", (user_id,))
-            result = self.cursor.fetchone()
-            return result[0] if result else 0
-        except Exception as e:
-            logger.error(f"Ошибка refka_cheks_money: {e}")
-            return 0
-
-    def get_casino_balance(self):
-        """Получение баланса казино"""
-        try:
-            self.cursor.execute("SELECT SUM(balance) FROM users")
-            result = self.cursor.fetchone()
-            total_balance = result[0] if result[0] else 0
-            return abs(total_balance)
-        except Exception as e:
-            logger.error(f"Ошибка get_casino_balance: {e}")
-            return 0
-
-    def get_pending_transactions(self):
-        """Получение pending транзакций"""
-        try:
-            self.cursor.execute("SELECT * FROM transactions WHERE status = 'pending' AND type = 'deposit'")
-            return self.cursor.fetchall()
-        except Exception as e:
-            logger.error(f"Ошибка get_pending_transactions: {e}")
-            return []
-
-    # СУЩЕСТВУЮЩИЕ МЕТОДЫ
-    def user_exists(self, user_id):
-        """Проверка существования пользователя"""
-        try:
-            self.cursor.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,))
-            return self.cursor.fetchone() is not None
-        except Exception as e:
-            logger.error(f"Ошибка user_exists: {e}")
-            return False
-
-    def add_users(self, user_id, refer_id=None):
-        """Добавление пользователя"""
-        try:
-            if refer_id:
-                self.cursor.execute(
-                    "INSERT OR IGNORE INTO users (user_id, refer_id) VALUES (?, ?)", 
-                    (user_id, refer_id)
-                )
-            else:
-                self.cursor.execute(
-                    "INSERT OR IGNORE INTO users (user_id) VALUES (?)", 
-                    (user_id,)
-                )
-            self.conn.commit()
-        except Exception as e:
-            logger.error(f"Ошибка add_users: {e}")
-
-    def count_ref(self, user_id):
-        """Подсчет рефералов"""
-        try:
-            self.cursor.execute("SELECT COUNT(*) FROM users WHERE refer_id = ?", (user_id,))
-            result = self.cursor.fetchone()
-            return result[0] if result else 0
-        except Exception as e:
-            logger.error(f"Ошибка count_ref: {e}")
-            return 0
-
-    def all_user(self):
-        """Получение всех пользователей"""
-        try:
-            self.cursor.execute("SELECT user_id FROM users")
-            return self.cursor.fetchall()
-        except Exception as e:
-            logger.error(f"Ошибка all_user: {e}")
-            return []
-
-    def get_URL(self):
-        """Получение всех URL"""
-        try:
-            self.cursor.execute("SELECT * FROM url WHERE id = 1")
-            result = self.cursor.fetchone()
-            if result:
-                return {
-                    'channals': result[1],
-                    'checks': result[2],
-                    'rules': result[3],
-                    'transfer': result[4],
-                    'command_game': result[5],
-                    'info_stavka': result[6],
-                    'news': result[7]
-                }
-        except Exception as e:
-            logger.error(f"Ошибка get_URL: {e}")
-        
-        return {
-            'channals': "https://t.me/+u6NEVaY6PVxiZTYy",
-            'checks': "https://t.me/+pFqhQ8D9hPFiNWU6",
-            'rules': "https://t.me/+u6NEVaY6PVxiZTYy",
-            'transfer': "https://t.me/+pFqhQ8D9hPFiNWU6", 
-            'command_game': "https://t.me/+u6NEVaY6PVxiZTYy",
-            'info_stavka': "https://t.me/+u6NEVaY6PVxiZTYy",
-            'news': "https://t.me/+u6NEVaY6PVxiZTYy"                                                                        
-        }
-
-    def update_url(self, column, values):
-        """Обновление URL"""
-        try:
-            self.cursor.execute(f"UPDATE url SET {column} = ? WHERE id = 1", (values,))
-            self.conn.commit()
-        except Exception as e:
-            logger.error(f"Ошибка update_url: {e}")
-
-    def get_all_KEF(self):
-        """Получение всех коэффициентов"""
-        try:
-            self.cursor.execute("SELECT * FROM kef WHERE id = 1")
-            result = self.cursor.fetchone()
-            if result:
-                return {
-                    'KEF1': result[1], 'KEF2': result[2], 'KEF3': result[3],
-                    'KEF4': result[4], 'KEF5': result[5], 'KEF6': result[6],
-                    'KEF7': result[7], 'KEF8': result[8], 'KEF9': result[9],
-                    'KEF10': result[10], 'KEF11': result[11], 'KEF12': result[12],
-                    'KEF13': result[13], 'KEF14': result[14], 'KEF15': result[15],
-                    'KEF16': result[16], 'KEF17': result[17]
-                }
-        except Exception as e:
-            logger.error(f"Ошибка get_all_KEF: {e}")
-        
-        return {
-            'KEF1': 2.0, 'KEF2': 6.0, 'KEF3': 2.0, 'KEF4': 4.0, 'KEF5': 2.0,
-            'KEF6': 64.0, 'KEF7': 5.0, 'KEF8': 3.0, 'KEF9': 2.0, 'KEF10': 2.0,
-            'KEF11': 2.0, 'KEF12': 2.0, 'KEF13': 2.0, 'KEF14': 5.0, 'KEF15': 2.0,
-            'KEF16': 2.0, 'KEF17': 14.0
-        }
-
-    def update_kef(self, column, values):
-        """Обновление коэффициента"""
-        try:
-            self.cursor.execute(f"UPDATE kef SET {column} = ? WHERE id = 1", (values,))
-            self.conn.commit()
-        except Exception as e:
-            logger.error(f"Ошибка update_kef: {e}")
-
-    def get_cur_KEF(self, column):
-        """Получение конкретного коэффициента"""
-        try:
-            self.cursor.execute(f"SELECT {column} FROM kef WHERE id = 1")
-            result = self.cursor.fetchone()
-            return result[0] if result else 50
-        except Exception as e:
-            logger.error(f"Ошибка get_cur_KEF: {e}")
-            return 50
-
-    def get_fake_values(self):
-        """Получение значения фейк-ставок"""
-        try:
-            self.cursor.execute("SELECT fake FROM settings WHERE id = 1")
-            result = self.cursor.fetchone()
-            return result[0] if result else 0
-        except Exception as e:
-            logger.error(f"Ошибка get_fake_values: {e}")
-            return 0
-
-    def update_fake(self, value):
-        """Обновление фейк-ставок"""
-        try:
-            self.cursor.execute("UPDATE settings SET fake = ? WHERE id = 1", (value,))
-            self.conn.commit()
-        except Exception as e:
-            logger.error(f"Ошибка update_fake: {e}")
+        pass
+    
+    # Если что-то пошло не так, возвращаем значения по умолчанию
+    return {
+        'channals': "https://t.me/+u6NEVaY6PVxiZTYy",
+        'checks': "https://t.me/+pFqhQ8D9hPFiNWU6",
+        'rules': "https://t.me/+u6NEVaY6PVxiZTYy",
+        'transfer': "https://t.me/+pFqhQ8D9hPFiNWU6", 
+        'command_game': "/game",
+        'info_stavka': "Информация о ставках",
+        'news': "https://t.me/+u6NEVaY6PVxiZTYy"                                                                        
+    }
+    def all_stats_day(self):
+        with self.connection:
+            return self.cur.execute('SELECT count_play, win, lose, balance_win, balance_lose FROM stats').fetchone()
 
     def all_stats(self):
-        """Получение общей статистики"""
-        try:
-            self.cursor.execute("SELECT * FROM stats WHERE id = 1")
-            result = self.cursor.fetchone()
-            if result:
-                return result
-        except Exception as e:
-            logger.error(f"Ошибка all_stats: {e}")
-        
-        return [0, 0, 0, 0, 0, 0]
+        with self.connection:
+            return self.cur.execute('SELECT sum(count_play), sum(win), sum(lose), sum(balance_win), sum(balance_lose), count(user_id) FROM users').fetchall()[0]
 
-    def all_stats_day(self):
-        """Получение дневной статистики"""
-        try:
-            return self.all_stats()[1:6]
-        except:
-            return [0, 0, 0, 0, 0]
+    def all_stats_users(self, user):
+        with self.connection:
+            return self.cur.execute('SELECT count_play, win, lose, balance_win, balance_lose, balance_ref FROM users WHERE user_id = ?', (user,)).fetchone()
+
+
+    def add_users(self, user_id, refere_id=None):
+        with self.connection:
+            if refere_id != None:
+                return self.cur.execute('INSERT INTO users (user_id, refere_id) VALUES (?, ?)', (user_id, refere_id))
+            else:
+                return self.cur.execute('INSERT INTO users (user_id) VALUES (?)', (user_id,))
+
+    def refka_cheks_money(self, user_id):
+        with self.connection:
+            return self.cur.execute('SELECT balance_ref FROM users WHERE user_id = ?', (user_id,)).fetchone()[0]
+
+    def add_balances_ref(self, user_id, amount):
+        with self.connection:
+            return self.cur.execute('UPDATE users SET balance_ref = balance_ref + ? WHERE user_id = ?', (amount, user_id))
+
+
+    def count_ref(self, user_id):
+        with self.connection:
+            return self.cur.execute("SELECT COUNT(id) as 'Количество_рефералов' FROM users WHERE refere_id = ?",
+                               (user_id,)).fetchone()[0]
+
+    def select_referi(self, user_id):
+        with self.connection:
+            return self.cur.execute('SELECT refere_id FROM users WHERE user_id = ?', (user_id,)).fetchone()[0]
+
+    def user_exists(self, user_id):
+        with self.connection:
+            result = self.cur.execute('SELECT * FROM users WHERE user_id = ?', (user_id,)).fetchall()
+            return bool(len(result))
+
 
     def add_count_pay(self, user_id, text, amount):
-        """Добавление статистики платежей"""
-        pass
+        with self.connection:
+            if text == 'win':
+                return self.cur.execute(f'UPDATE users SET count_play = count_play + 1, win = win + 1, balance_win = balance_win + {amount} WHERE user_id = {user_id}')
+            if text == 'lose':
+                return self.cur.execute(f'UPDATE users SET count_play = count_play + 1, lose = lose + 1, balance_lose = balance_lose + {amount} WHERE user_id = {user_id}')
 
     def add_count_pay_stats_day(self, text, amount):
-        """Добавление дневной статистики"""
-        pass
+        with self.connection:
+            if text == 'win':
+                return self.cur.execute(f'UPDATE stats SET count_play = count_play + 1, win = win + 1, balance_win = balance_win + {amount}')
+            if text == 'lose':
+                return self.cur.execute(f'UPDATE stats SET count_play = count_play + 1, lose = lose + 1, balance_lose = balance_lose + {amount}')
 
-    def __del__(self):
-        """Закрытие соединения при удалении объекта"""
-        try:
-            self.conn.close()
-        except:
-            pass
+    def del_stats_day(self):
+        with self.connection:
+            return self.cur.execute(f'UPDATE stats SET count_play = 0, win = 0, lose = 0, balance_win = 0, balance_lose = 0')
 
+
+
+    def get_fake_values(self):
+        with self.connection:
+            return self.cur.execute('SELECT fake FROM settings').fetchone()[0]
+
+    def update_fake(self, values):
+        with self.connection:
+            return self.cur.execute(f'UPDATE settings SET fake = ?', (values,))
+
+    def get_all_KEF(self):
+        with self.connection:
+            res = self.cur.execute('SELECT * FROM settings').fetchone()
+            return {'KEF1': res[1],'KEF2': res[2],'KEF3': res[3],'KEF4': res[4],'KEF5': res[5],'KEF6': res[6],'KEF7': res[7],
+                    'KEF8': res[8],'KEF9': res[9],'KEF10': res[10],'KEF11': res[11],'KEF12': res[12],'KEF13': res[13],'KEF14': res[14],
+                    'KEF15': res[15],'KEF16': res[16],'KEF17': res[17]}
+
+
+
+    def update_kef(self, column, values):
+        with self.connection:
+            return self.cur.execute(f'UPDATE settings SET {column} = ?', (values,))
+
+    def get_cur_KEF(self, column):
+        with self.connection:
+            return self.cur.execute(f'SELECT {column} FROM settings').fetchone()[0]
+
+    def get_KNB_procent(self):
+        with self.connection:
+            return self.cur.execute(f'SELECT KNB FROM settings').fetchone()[0]
+
+    def all_user(self):
+        with self.connection:
+            return self.cur.execute('SELECT user_id FROM users').fetchall()
+
+
+
+    def get_URL(self):
+        with self.connection:
+            result = self.cur.execute(f'SELECT * FROM urls').fetchone()
+            return {'channals':result[0], 'checks':result[1], 'rules':result[2], 'transfer':result[3], 'command_game':result[4], 'info_stavka':result[5], 'news':result[6]}
+
+    def update_url(self, column, values):
+        with self.connection:
+
+            return self.cur.execute(f'UPDATE urls SET {column} = ?', (values,))
+
+
+def count_ref(self, user_id):
+    """Подсчет количества рефералов пользователя"""
+    try:
+        self.cursor.execute("SELECT COUNT(*) FROM users WHERE refer_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+        return result[0] if result else 0
+    except Exception as e:
+        print(f"Ошибка в count_ref: {e}")
+        return 0
+
+def refka_cheks_money(self, user_id):
+    """Подсчет заработанного с рефералов"""
+    try:
+        self.cursor.execute("SELECT SUM(amount) FROM ref_stats WHERE user_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+        return result[0] if result and result[0] else 0
+    except Exception as e:
+        print(f"Ошибка в refka_cheks_money: {e}")
+        return 0
+
+def user_exists(self, user_id):
+    """Проверка существования пользователя"""
+    try:
+        self.cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+        return result is not None
+    except Exception as e:
+        print(f"Ошибка в user_exists: {e}")
+        return False
+
+def add_users(self, user_id, refer_id=None):
+    """Добавление пользователя"""
+    try:
+        if refer_id:
+            self.cursor.execute("INSERT OR IGNORE INTO users (user_id, refer_id) VALUES (?, ?)", (user_id, refer_id))
+        else:
+            self.cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
+        self.conn.commit()
+    except Exception as e:
+        print(f"Ошибка в add_users: {e}")
+
+def all_user(self):
+    """Получение всех пользователей"""
+    try:
+        self.cursor.execute("SELECT user_id FROM users")
+        return self.cursor.fetchall()
+    except Exception as e:
+        print(f"Ошибка в all_user: {e}")
+        return []
