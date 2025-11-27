@@ -8,8 +8,6 @@ from aiogram import F
 from aiogram.filters import CommandStart, CommandObject
 from aiogram.utils.markdown import hlink
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import KeyboardButton
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 from loader import dp, db, bot, admin, lock
 from keybords import *
@@ -127,79 +125,6 @@ async def info_func(message:Message):
     await message.answer(f'<b>💭 Информация о проекте {hlink(title=NAME_CASINO, url=game_channel)}</b>', 
                          reply_markup=kb_info(), disable_web_page_preview=True)
 
-# === ФУНКЦИИ ПРОФИЛЯ - ДОБАВЬТЕ ЗДЕСЬ ===
-
-@dp.message(F.text == '👤 Профиль')
-async def profile_handler(message: Message):
-    """Показ профиля пользователя"""
-    user_id = message.from_user.id
-    balance = db.get_user_balance(user_id)
-    ref_count = db.count_ref(user_id)
-    
-    # Получаем информацию о пользователе
-    username = f"@{message.from_user.username}" if message.from_user.username else "Не указан"
-    first_name = message.from_user.first_name or "Пользователь"
-    
-    # Получаем статистику игр
-    try:
-        user_stats = db.all_stats_users(user_id) or [0, 0, 0, 0, 0, 0]
-        total_games = user_stats[0]
-        wins = user_stats[1]
-        loses = user_stats[2]
-    except:
-        total_games = 0
-        wins = 0
-        loses = 0
-    
-    # Рассчитываем процент побед
-    win_rate = (wins / total_games * 100) if total_games > 0 else 0
-    
-    # Реферальная ссылка
-    ref_link = f"https://t.me/{NICNAME}?start={user_id}"
-    
-    await message.answer(
-        f'<b>👤 Профиль игрока</b>\n\n'
-        f'🆔 <b>ID:</b> <code>{user_id}</code>\n'
-        f'👤 <b>Имя:</b> {first_name}\n'
-        f'📱 <b>Username:</b> {username}\n\n'
-        f'💰 <b>Баланс:</b> <code>{balance}$</code>\n\n'
-        f'📊 <b>Статистика игр:</b>\n'
-        f'   • 🎮 Всего игр: <code>{total_games}</code>\n'
-        f'   • ✅ Побед: <code>{wins}</code>\n'
-        f'   • ❌ Поражений: <code>{loses}</code>\n'
-        f'   • 📈 Процент побед: <code>{win_rate:.1f}%</code>\n\n'
-        f'👥 <b>Реферальная программа:</b>\n'
-        f'   • 👤 Рефералов: <code>{ref_count}</code>\n'
-        f'   • 💰 Заработано: <code>{db.refka_cheks_money(user_id)}$</code>\n\n'
-        f'🔗 <b>Ваша реферальная ссылка:</b>\n'
-        f'<code>{ref_link}</code>',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="📎 Поделиться ссылкой", url=f"https://t.me/share/url?url={ref_link}&text=Присоединяйся%20к%20казино!")],
-            [InlineKeyboardButton(text="💸 Пополнить баланс", callback_data="add_balance_from_profile")],
-            [InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_profile")]
-        ]).as_markup(),
-        disable_web_page_preview=True
-    )
-
-@dp.callback_query(F.data == "refresh_profile")
-async def refresh_profile(callback: CallbackQuery):
-    """Обновление профиля"""
-    await profile_handler(callback.message)
-
-@dp.callback_query(F.data == "add_balance_from_profile")
-async def add_balance_from_profile(callback: CallbackQuery, state: FSMContext):
-    """Пополнение баланса из профиля"""
-    await callback.message.answer(
-        '<b>💸 Пополнение баланса</b>\n\n'
-        'Введите сумму пополнения в $ (например: 0.14):',
-        reply_markup=ReplyKeyboardBuilder([
-            [KeyboardButton(text="❌ Отмена")]
-        ]).as_markup(resize_keyboard=True)
-    )
-    await state.set_state(AddBalanceUser.amount)
-    await callback.answer()
-
-# === КОНЕЦ ФУНКЦИЙ ПРОФИЛЯ ===
 # ДОБАВЬТЕ ЭТИ ОБРАБОТЧИКИ ИГР
 
 @dp.message(F.text == '🎲 Играть')
@@ -298,73 +223,6 @@ async def dice_number_bet(callback: CallbackQuery, state: FSMContext):
             [InlineKeyboardButton(text="❌ Назад", callback_data="game_dice")]
         ]).as_markup()
     )
-@dp.callback_query(F.data.startswith("dice_bet_"))
-async def process_dice_bet(callback: CallbackQuery, state: FSMContext):
-    """Обработка ставки в кости"""
-    data = await state.get_data()
-    amount = data['amount']
-    bet_type = callback.data.split("_")[2]  # число от 1 до 6
-    
-    # Списываем ставку с баланса
-    db.update_user_balance(callback.from_user.id, -amount)
-    
-    # Обновляем статистику - увеличиваем общее количество игр
-    db.update_user_stats(callback.from_user.id, 'total_games', 1)
-    
-    # Отправляем анимацию кубика
-    dice_message = await callback.message.answer_dice(emoji="🎲")
-    dice_value = dice_message.dice.value
-    
-    # Определяем результат
-    chosen_number = int(bet_type)
-    win = (dice_value == chosen_number)
-    multiplier = 6 if win else 0
-    win_amount = amount * multiplier if win else 0
-    
-    if win:
-        # Начисляем выигрыш
-        db.update_user_balance(callback.from_user.id, win_amount)
-        # Обновляем статистику - увеличиваем победы
-        db.update_user_stats(callback.from_user.id, 'wins', 1)
-        db.update_user_stats(callback.from_user.id, 'total_win', win_amount)
-        result_text = f"🎉 <b>ПОБЕДА!</b>\nВы выиграли: {win_amount}$"
-    else:
-        # Обновляем статистику - увеличиваем поражения
-        db.update_user_stats(callback.from_user.id, 'loses', 1)
-        result_text = f"😞 <b>ПРОИГРЫШ</b>\nВы проиграли: {amount}$"
-    
-    # Обновляем общую сумму ставок
-    db.update_user_stats(callback.from_user.id, 'total_bet', amount)
-    
-    await asyncio.sleep(3)  # Ждем пока анимация кубика завершится
-    
-    new_balance = db.get_user_balance(callback.from_user.id)
-    
-    await callback.message.answer(
-        f'<b>🎯 Результат игры в кости</b>\n\n'
-        f'🎲 <b>Выпало:</b> {dice_value}\n'
-        f'🎯 <b>Ваша ставка:</b> на {chosen_number}\n'
-        f'💰 <b>Сумма ставки:</b> {amount}$\n'
-        f'📈 <b>Коэффициент:</b> x{multiplier}\n\n'
-        f'{result_text}\n\n'
-        f'💰 <b>Новый баланс:</b> {new_balance}$\n\n'
-        f'<i>Сиграть еще раз?</i>',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text="🎯 Сыграть еще", callback_data="game_dice")],
-            [InlineKeyboardButton(text="👤 Профиль", callback_data="refresh_profile")],
-            [InlineKeyboardButton(text="📊 Меню игр", callback_data="back_to_games")]
-        ]).as_markup()
-    )
-    await state.clear()
-
-# === КОНЕЦ ДОБАВЛЕННОГО КОДА ===
-
-@dp.callback_query(F.data == "back_to_games")
-async def back_to_games(callback: CallbackQuery, state: FSMContext):
-    """Возврат в меню игр"""
-    await state.clear()
-    await play_game_menu(callback.message)
-
 
 @dp.callback_query(F.data.startswith("dice_bet_"))
 async def process_dice_bet(callback: CallbackQuery, state: FSMContext):
@@ -820,7 +678,7 @@ async def game_dice_menu(callback: CallbackQuery, state: FSMContext):
 
 @dp.message(F.text == '👑 Админка')
 async def admin_panel(message: Message):
-    """Админка из сообщения"""
+    """Проверка админских прав и показ админки"""
     if message.from_user.id not in ADMIN:
         await message.answer("❌ У вас нет доступа к админ панели")
         return
@@ -838,165 +696,15 @@ async def admin_panel(message: Message):
         reply_markup=kb_admin()
     )
 
-@dp.callback_query(F.data == 'back_admin')
-async def back_admin_func(callback: CallbackQuery, state: FSMContext):
-    """Возврат в админ меню из callback"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    await state.clear()
-    try:
-        balance_data = await crypto.get_balance()
-        balance = balance_data[0].available if balance_data else 0
-    except:
-        balance = 0
-        
-    await callback.message.edit_text(
-        text='<b>👑 Админ панель</b>\n\n'
-             f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
-             f'<i>Выберите действие:</i>',
-        reply_markup=kb_admin()
-    )
-
-@dp.callback_query(F.data == 'fake_deposit')
-async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
-    """Меню фейкового пополнения"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    await callback.message.edit_text(
-        text='<b>💰 Фейк пополнение баланса</b>\n\n'
-             'Введите ID пользователя:',
-        reply_markup=kb_back_admin()
-    )
-    await state.set_state(FakeDeposit.user_id)
-    
-    await state.clear()  # ← ОЧИЩАЕМ СОСТОЯНИЕ
-    try:
-        balance_data = await crypto.get_balance()
-        balance = balance_data[0].available if balance_data else 0
-    except:
-        balance = 0
-        
-    await callback.message.edit_text(
-        text='<b>👑 Админ панель</b>\n\n'
-             f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
-             f'<i>Выберите действие:</i>',
-        reply_markup=kb_admin()
-    )
-    
-    try:
-        balance_data = await crypto.get_balance()
-        balance = balance_data[0].available if balance_data else 0
-    except:
-        balance = 0
-        
-    await message.answer(
-        text='<b>👑 Админ панель</b>\n\n'
-             f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
-             f'<i>Выберите действие:</i>',
-        reply_markup=kb_admin() 
-    )
-
 # ОБНОВИТЕ ВСЕ АДМИНСКИЕ ОБРАБОТЧИКИ - добавьте проверку прав:
+
 @dp.callback_query(F.data == 'stats_project')
 async def stats_adm(callback: CallbackQuery):
     """Статистика проекта"""
     if callback.from_user.id not in ADMIN:
         await callback.answer("❌ Нет доступа", show_alert=True)
         return
-
-@dp.callback_query(F.data == 'fake_deposit')
-async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
-    """Меню фейкового пополнения"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
     
-    await callback.message.edit_text(
-        text='<b>💰 Фейк пополнение баланса</b>\n\n'
-             'Введите ID пользователя:',
-        reply_markup=kb_back_admin()
-    )
-    await state.set_state(FakeDeposit.user_id)
-    
-    await callback.message.edit_text(
-        text='<b>💰 Фейк пополнение баланса</b>\n\n'
-             'Введите ID пользователя:',
-        reply_markup=kb_back_admin()
-    )
-    await state.set_state(FakeDeposit.user_id)
-    await state.set_state(FakeDeposit.user_id)
-
-@dp.message(FakeDeposit.user_id)
-async def process_fake_deposit_user_id(message: Message, state: FSMContext):
-    """Обработка ID пользователя для фейк пополнения"""
-    try:
-        user_id = int(message.text)
-        await state.update_data(user_id=user_id)
-        
-        await message.answer(
-            '<b>💰 Фейк пополнение баланса</b>\n\n'
-            f'Пользователь: <code>{user_id}</code>\n'
-            'Введите сумму пополнения ($):',
-            reply_markup=kb_back_admin()
-        )
-        await state.set_state(FakeDeposit.amount)
-        
-    except ValueError:
-        await message.answer('❌ Введите корректный ID пользователя (число)')
-
-@dp.message(FakeDeposit.amount)
-async def process_fake_deposit_amount(message: Message, state: FSMContext):
-    """Обработка суммы фейк пополнения"""
-    try:
-        amount = float(message.text)
-        data = await state.get_data()
-        user_id = data['user_id']
-        
-        if amount <= 0:
-            await message.answer('❌ Сумма должна быть больше 0')
-            return
-        
-        # Пополняем баланс
-        db.update_user_balance(user_id, amount)
-        
-        # Добавляем запись в транзакции
-        db.add_transaction(
-            user_id=user_id,
-            transaction_type='fake_deposit',
-            amount=amount,
-            status='completed',
-            description=f'Фейк пополнение от админа {message.from_user.id}'
-        )
-        
-        await message.answer(
-            f'✅ <b>Баланс пользователя {user_id} пополнен на {amount}$</b>\n\n'
-            f'💳 <b>Сумма:</b> {amount}$\n'
-            f'👤 <b>Пользователь:</b> <code>{user_id}</code>\n'
-            f'🆔 <b>Админ:</b> <code>{message.from_user.id}</code>',
-            reply_markup=kb_back_admin()
-        )
-        
-        # Пытаемся уведомить пользователя
-        try:
-            await bot.send_message(
-                user_id,
-                f'🎉 <b>Ваш баланс пополнен на {amount}$</b>\n\n'
-                f'💰 <b>Сумма:</b> {amount}$\n'
-                f'📝 <b>Тип:</b> Административное пополнение\n\n'
-                f'💳 <b>Текущий баланс:</b> {db.get_user_balance(user_id)}$'
-            )
-        except:
-            pass
-            
-        await state.clear()
-        
-    except ValueError:
-        await message.answer('❌ Введите корректную сумму')
-        
     try:
         stats = db.all_stats() or [0, 0, 0, 0, 0, 0]
         balance_data = await crypto.get_balance()
@@ -1009,40 +717,70 @@ async def process_fake_deposit_amount(message: Message, state: FSMContext):
         
     # ... остальной код статистики
 
-@dp.callback_query(F.data == 'stats_project')
-async def stats_adm(callback: CallbackQuery):
-    """Статистика проекта"""
+@dp.callback_query(F.data == 'stats_user')
+async def stats_adm(callback: CallbackQuery, state: FSMContext):
+    """Статистика пользователя"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await callback.message.edit_text('<b>Введите id игрока</b>', reply_markup=kb_back_admin())
+    await state.set_state(UserStats.user_id)
+
+@dp.callback_query(F.data == 'add_balance')
+async def stats_adm(callback: CallbackQuery, state: FSMContext):
+    """Пополнение баланса казино"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await callback.message.edit_text(text='<b>Введите сумму в $</b>', reply_markup=kb_back_admin())
+    await state.set_state(AddBalanceCasino.amount)
+
+@dp.callback_query(F.data == 'settings_fake')
+async def fake_game_adm(callback: CallbackQuery):
+    """Настройки фейк ставок"""
     if callback.from_user.id not in ADMIN:
         await callback.answer("❌ Нет доступа", show_alert=True)
         return
     
     try:
-        stats = db.all_stats() or [0, 0, 0, 0, 0, 0]
-        balance_data = await crypto.get_balance()
-        balance = balance_data[0].available if balance_data else 0
-        info_day = db.all_stats_day() or [0, 0, 0, 0, 0]
+        values_fake = db.get_fake_values()
     except:
-        stats = [0, 0, 0, 0, 0, 0]
-        balance = 0
-        info_day = [0, 0, 0, 0, 0]
+        values_fake = 0
         
     await callback.message.edit_text(
-        text=f'<b>📊 Статистика проекта</b>\n\n'
-             f'👥 <b>Всего пользователей:</b> <code>{len(db.all_user())}</code>\n'
-             f'🎮 <b>Всего игр:</b> <code>{stats[1]}</code>\n'
-             f'✅ <b>Побед:</b> <code>{stats[2]}</code>\n'
-             f'❌ <b>Поражений:</b> <code>{stats[3]}</code>\n'
-             f'💸 <b>Выплаты:</b> <code>{stats[4]}$</code>\n'
-             f'💰 <b>Доход:</b> <code>{stats[5]}$</code>\n\n'
-             f'<b>📈 За сегодня:</b>\n'
-             f'🎮 <b>Игры:</b> <code>{info_day[0]}</code>\n'
-             f'✅ <b>Побед:</b> <code>{info_day[1]}</code>\n'
-             f'❌ <b>Поражений:</b> <code>{info_day[2]}</code>\n'
-             f'💸 <b>Выплаты:</b> <code>{info_day[3]}$</code>\n'
-             f'💰 <b>Доход:</b> <code>{info_day[4]}$</code>\n\n'
-             f'💳 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>',
-        reply_markup=kb_back_admin()
+        text='<b>👀 Настройки фейк ставок</b>\n\n'
+             f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.\n\n'
+             f'<i>Включить/выключить фейк ставки:</i>', 
+        reply_markup=kb_fake_switch(values_fake)
     )
+
+@dp.callback_query(F.data.startswith('fake'))
+async def fake_switch_func(callback: CallbackQuery):
+    """Переключение фейк ставок"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    values_fake = callback.data.split('|')[1]
+    try:
+        if int(values_fake):
+            db.update_fake(0)
+        if int(values_fake) == 0:
+            db.update_fake(1)
+
+        values_fake = db.get_fake_values()
+    except:
+        values_fake = 0
+        
+    await callback.message.edit_text(
+        text='<b>👀 Настройки фейк ставок</b>\n\n'
+             f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.\n\n'
+             f'<i>Включить/выключить фейк ставки:</i>',
+        reply_markup=kb_fake_switch(int(values_fake))
+    )
+    await callback.answer('✅ Настройки обновлены')
 
 @dp.callback_query(F.data == 'kef_edit')
 async def kef_edit_adm(callback: CallbackQuery):
@@ -1079,32 +817,6 @@ async def knb_settings_func(callback: CallbackQuery):
              f'<b>Текущее значение:</b> {cur_procent}%', 
         reply_markup=kb_KNB_twist(cur_procent)
     )
-
-@dp.callback_query(F.data == 'fake_deposit')
-async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
-    """Меню фейкового пополнения"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    await callback.message.edit_text(
-        text='<b>💰 Фейк пополнение баланса</b>\n\n'
-             'Введите ID пользователя:',
-        reply_markup=kb_back_admin()
-    )
-    await state.set_state(FakeDeposit.user_id)@dp.callback_query(F.data == 'fake_deposit')
-async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
-    """Меню фейкового пополнения"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    await callback.message.edit_text(
-        text='<b>💰 Фейк пополнение баланса</b>\n\n'
-             'Введите ID пользователя:',
-        reply_markup=kb_back_admin()
-    )
-    await state.set_state(FakeDeposit.user_id)
 
 @dp.callback_query(F.data == 'all_message_send')
 async def all_message_send_func(callback: CallbackQuery):
@@ -1184,7 +896,6 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
-
 
 
 
