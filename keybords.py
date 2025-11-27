@@ -109,10 +109,14 @@ def kb_menu(user):
     kb1 = KeyboardButton(text='📎 Реферальная программа')
     kb2 = KeyboardButton(text='👑 Админка')
     kb3 = KeyboardButton(text='💭 Информация')
+    kb4 = KeyboardButton(text='💸 Пополнить баланс')  # Добавляем кнопку пополнения
+    kb5 = KeyboardButton(text='🎲 Играть')  # Добавляем кнопку игры
+    
     if user in ADMIN:
-        keybord.add(kb1).add(kb3).add(kb2).adjust(1)
+        keybord.add(kb1, kb3, kb4, kb5, kb2).adjust(2)  # 2 кнопки в ряд
         return keybord.as_markup(resize_keyboard=True)
-    keybord.add(kb1).add(kb3).adjust(1)
+    
+    keybord.add(kb1, kb3, kb4, kb5).adjust(2)  # 2 кнопки в ряд для обычных пользователей
     return keybord.as_markup(resize_keyboard=True)
 
 
@@ -258,4 +262,5 @@ def kb_urls():
         [InlineKeyboardButton(text='« Назад', callback_data=f'back_admin')]
     ])
     return bilder.as_markup()
+
 
