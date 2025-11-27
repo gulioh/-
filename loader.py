@@ -5,7 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
-# Попробуем импортировать aiocryptopay с правильными именами
+# Попробуем импортировать aiocryptopay
 try:
     from aiocryptopay import AioCryptoPay, Networks
     CRYPTO_AVAILABLE = True
@@ -36,15 +36,15 @@ crypto = None
 if CRYPTO_AVAILABLE and CRYPTO_PAY_TOKEN:
     try:
         crypto = AioCryptoPay(
-            token=492799:AAQQVNDEACW7NKHaoNOwOBvU9NXWPN2oXni,
-            network=Networks.MAIN_NET  # Используйте Networks.TEST_NET для тестов
+            token=CRYPTO_PAY_TOKEN,
+            network=Networks.MAIN_NET
         )
         print("✅ Crypto Pay инициализирован")
     except Exception as e:
         print(f"❌ Ошибка инициализации Crypto Pay: {e}")
         crypto = None
 else:
-    print("⚠️ Crypto Pay отключен (нет токена или библиотеки)")
+    print("⚠️ Crypto Pay отключен")
 
 # Импорт административного роутера
 try:
@@ -55,4 +55,3 @@ except ImportError:
 
 # Блокировка для предотвращения гонки условий
 lock = asyncio.Lock()
-
