@@ -509,19 +509,219 @@ async def process_add_balance(message: Message, state: FSMContext):
         await message.answer(f"❌ Ошибка создания счета: {e}")
 # АДМИНСКИЕ ФУНКЦИИ (оставьте ваши существующие админские функции ниже)
 
-@admin.message(F.text == '👑 Админка')
-async def stats_adm(message: Message):
+# Уберите эту строку если она есть в начале файла:
+# admin.message.filter(IsAdmin())
+
+# Добавьте правильные обработчики для админа:
+
+@dp.message(F.text == '👑 Админка')
+async def admin_panel(message: Message):
+    """Проверка админских прав и показ админки"""
+    if message.from_user.id not in ADMIN:
+        await message.answer("❌ У вас нет доступа к админ панели")
+        return
+    
     try:
         balance_data = await crypto.get_balance()
         balance = balance_data[0].available if balance_data else 0
     except:
         balance = 0
         
-    await message.answer(text='<b>Вы в админ меню\n'
-                              f'Баланс казино: <code>{round(float(balance), 2)}$</code></b>',
-                         reply_markup=kb_admin())
+    await message.answer(
+        text='<b>👑 Админ панель</b>\n\n'
+             f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
+             f'<i>Выберите действие:</i>',
+        reply_markup=kb_admin()
+    )
 
-# ... остальные ваши админские функции оставьте без изменений
+# ОБНОВИТЕ ВСЕ АДМИНСКИЕ ОБРАБОТЧИКИ - добавьте проверку прав:
+
+@dp.callback_query(F.data == 'stats_project')
+async def stats_adm(callback: CallbackQuery):
+    """Статистика проекта"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    try:
+        stats = db.all_stats() or [0, 0, 0, 0, 0, 0]
+        balance_data = await crypto.get_balance()
+        balance = balance_data[0].available if balance_data else 0
+        info_day = db.all_stats_day() or [0, 0, 0, 0, 0]
+    except:
+        stats = [0, 0, 0, 0, 0, 0]
+        balance = 0
+        info_day = [0, 0, 0, 0, 0]
+        
+    # ... остальной код статистики
+
+@dp.callback_query(F.data == 'stats_user')
+async def stats_adm(callback: CallbackQuery, state: FSMContext):
+    """Статистика пользователя"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await callback.message.edit_text('<b>Введите id игрока</b>', reply_markup=kb_back_admin())
+    await state.set_state(UserStats.user_id)
+
+@dp.callback_query(F.data == 'add_balance')
+async def stats_adm(callback: CallbackQuery, state: FSMContext):
+    """Пополнение баланса казино"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await callback.message.edit_text(text='<b>Введите сумму в $</b>', reply_markup=kb_back_admin())
+    await state.set_state(AddBalanceCasino.amount)
+
+@dp.callback_query(F.data == 'settings_fake')
+async def fake_game_adm(callback: CallbackQuery):
+    """Настройки фейк ставок"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    try:
+        values_fake = db.get_fake_values()
+    except:
+        values_fake = 0
+        
+    await callback.message.edit_text(
+        text='<b>👀 Настройки фейк ставок</b>\n\n'
+             f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.\n\n'
+             f'<i>Включить/выключить фейк ставки:</i>', 
+        reply_markup=kb_fake_switch(values_fake)
+    )
+
+@dp.callback_query(F.data.startswith('fake'))
+async def fake_switch_func(callback: CallbackQuery):
+    """Переключение фейк ставок"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    values_fake = callback.data.split('|')[1]
+    try:
+        if int(values_fake):
+            db.update_fake(0)
+        if int(values_fake) == 0:
+            db.update_fake(1)
+
+        values_fake = db.get_fake_values()
+    except:
+        values_fake = 0
+        
+    await callback.message.edit_text(
+        text='<b>👀 Настройки фейк ставок</b>\n\n'
+             f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.\n\n'
+             f'<i>Включить/выключить фейк ставки:</i>',
+        reply_markup=kb_fake_switch(int(values_fake))
+    )
+    await callback.answer('✅ Настройки обновлены')
+
+@dp.callback_query(F.data == 'kef_edit')
+async def kef_edit_adm(callback: CallbackQuery):
+    """Редактирование коэффициентов"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    try:
+        all_kef = db.get_all_KEF()
+    except:
+        all_kef = {}
+        
+    text = await kef_all_text(all_kef)
+    await callback.message.edit_text(text=text, reply_markup=kb_edit_kef(all_kef))
+
+@dp.callback_query(F.data == 'knb')
+async def knb_settings_func(callback: CallbackQuery):
+    """Настройки КНБ"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    try:
+        cur_procent = db.get_cur_KEF('KNB')
+    except:
+        cur_procent = 50
+        
+    await callback.message.edit_text(
+        text='<b>⚙️ Подкрутка КНБ</b>\n\n'
+             'Берется рандомное число от 0-100, если рандомное число больше или равно указанному числу то юзер проиграет\n\n'
+             '<code>1</code> - всегда проигрыш\n'
+             '<code>100</code> - без накрутки\n\n'
+             f'<b>Текущее значение:</b> {cur_procent}%', 
+        reply_markup=kb_KNB_twist(cur_procent)
+    )
+
+@dp.callback_query(F.data == 'all_message_send')
+async def all_message_send_func(callback: CallbackQuery):
+    """Рассылка сообщений"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await callback.message.edit_text(text='<b>📢 Выберите тип рассылки</b>', reply_markup=ikb_tip_rassilka())
+
+@dp.callback_query(F.data == 'urls')
+async def urls_func(callback: CallbackQuery):
+    """Редактирование URL"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    try:
+        url = db.get_URL()
+    except:
+        url = {}
+        
+    await callback.message.edit_text(await urls_admin_text(url), reply_markup=kb_urls(), disable_web_page_preview=True)
+
+@dp.callback_query(F.data == 'deleted_checks')
+async def deleted_checks_func(callback: CallbackQuery):
+    """Удаление чеков"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await callback.message.edit_text(text='<b>🗑 Удаление чеков</b>\n\nВы уверены что хотите удалить все активные чеки?', reply_markup=kb_answer_delete())
+
+@dp.callback_query(F.data == 'send_db')
+async def add_card(callback: CallbackQuery):
+    """Отправка базы данных"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    try:
+        document = FSInputFile('database.db')
+        await bot.send_document(chat_id=callback.from_user.id, document=document)
+        await callback.answer('✅ База данных отправлена')
+    except Exception as e:
+        await callback.answer(f"❌ Ошибка отправки БД: {e}", show_alert=True)
+
+@dp.callback_query(F.data == 'back_admin')
+async def back_admin_func(callback: CallbackQuery, state: FSMContext):
+    """Возврат в админ меню"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await state.clear()
+    try:
+        balance_data = await crypto.get_balance()
+        balance = balance_data[0].available if balance_data else 0
+    except:
+        balance = 0
+        
+    await callback.message.edit_text(
+        text='<b>👑 Админ панель</b>\n\n'
+             f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
+             f'<i>Выберите действие:</i>',
+        reply_markup=kb_admin()
+    )
 
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
@@ -534,6 +734,7 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
 
 
