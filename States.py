@@ -33,3 +33,15 @@ class NewUrlAdmin(StatesGroup):
 
 class AddBalanceUser(StatesGroup):
     amount = State()
+
+class GameDice(StatesGroup):
+    amount = State()
+
+class GameSlots(StatesGroup):
+    amount = State()
+
+class GameFootball(StatesGroup):
+    amount = State()
+
+class GameKNB(StatesGroup):
+    amount = State()
