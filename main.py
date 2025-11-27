@@ -146,17 +146,49 @@ async def play_game_handler(message: Message):
     )
 
 @dp.message(F.text == '💸 Пополнить баланс')
-async def add_balance_handler(message: Message):
-    checks_url = safe_get_url('checks')
+async def add_balance_user(message: Message, state: FSMContext):
+    """Пополнение баланса через Crypto Bot"""
     await message.answer(
         '<b>💸 Пополнение баланса</b>\n\n'
-        'Для пополнения баланса перейдите в канал с чеками:',
-        reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text='💳 Перейти к чекам', url=checks_url)]
-        ]).as_markup(),
-        disable_web_page_preview=True
+        'Введите сумму пополнения в $ (например: 10):',
+        reply_markup=ReplyKeyboardBuilder([
+            [KeyboardButton(text="❌ Отмена")]
+        ]).as_markup(resize_keyboard=True)
     )
+    await state.set_state(AddBalanceUser.amount)
 
+@dp.message(AddBalanceUser.amount)
+async def process_add_balance(message: Message, state: FSMContext):
+    """Обработка суммы пополнения"""
+    try:
+        amount = float(message.text)
+        if amount < 1:
+            await message.answer("❌ Минимальная сумма пополнения: 1$")
+            return
+        
+        # Создаем инвойс через Crypto Bot
+        invoice = await crypto.create_invoice(
+            asset='USDT',
+            amount=amount,
+            description=f'Пополнение баланса для пользователя {message.from_user.id}'
+        )
+        
+        await message.answer(
+            f'<b>💸 Счет на оплату</b>\n\n'
+            f'<b>Сумма:</b> {amount}$\n'
+            f'<b>Статус:</b> Ожидание оплаты\n\n'
+            f'Оплатите счет в течение 15 минут',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="💳 Оплатить", url=invoice.bot_invoice_url)],
+                [InlineKeyboardButton(text="✅ Проверить оплату", callback_data=f"check_payment_{invoice.invoice_id}")]
+            ]).as_markup()
+        )
+        await state.clear()
+        
+    except ValueError:
+        await message.answer("❌ Введите корректную сумму (например: 10)")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка создания счета: {e}")
 # АДМИНСКИЕ ФУНКЦИИ (оставьте ваши существующие админские функции ниже)
 
 @admin.message(F.text == '👑 Админка')
@@ -184,3 +216,4 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
