@@ -884,6 +884,127 @@ async def back_admin_func(callback: CallbackQuery, state: FSMContext):
              f'<i>Выберите действие:</i>',
         reply_markup=kb_admin()
     )
+    @dp.message(F.text == '👤 Профиль')
+async def profile_handler(message: Message):
+    """Показ профиля пользователя"""
+    user_id = message.from_user.id
+    balance = db.get_user_balance(user_id)
+    ref_count = db.count_ref(user_id)
+    
+    # Получаем информацию о пользователе
+    username = f"@{message.from_user.username}" if message.from_user.username else "Не указан"
+    first_name = message.from_user.first_name or "Пользователь"
+    
+    # Получаем статистику игр (если есть такая функция)
+    try:
+        user_stats = db.all_stats_users(user_id) or [0, 0, 0, 0, 0, 0]
+        total_games = user_stats[0]
+        wins = user_stats[1]
+        loses = user_stats[2]
+    except:
+        total_games = 0
+        wins = 0
+        loses = 0
+    
+    # Рассчитываем процент побед
+    win_rate = (wins / total_games * 100) if total_games > 0 else 0
+    
+    # Реферальная ссылка
+    ref_link = f"https://t.me/{NICNAME}?start={user_id}"
+    
+    await message.answer(
+        f'<b>👤 Профиль игрока</b>\n\n'
+        f'🆔 <b>ID:</b> <code>{user_id}</code>\n'
+        f'👤 <b>Имя:</b> {first_name}\n'
+        f'📱 <b>Username:</b> {username}\n\n'
+        f'💰 <b>Баланс:</b> <code>{balance}$</code>\n\n'
+        f'📊 <b>Статистика игр:</b>\n'
+        f'   • 🎮 Всего игр: <code>{total_games}</code>\n'
+        f'   * ✅ Побед: <code>{wins}</code>\n'
+        f'   • ❌ Поражений: <code>{loses}</code>\n'
+        f'   • 📈 Процент побед: <code>{win_rate:.1f}%</code>\n\n'
+        f'👥 <b>Реферальная программа:</b>\n'
+        f'   • 👤 Рефералов: <code>{ref_count}</code>\n'
+        f'   • 💰 Заработано: <code>{db.refka_cheks_money(user_id)}$</code>\n\n'
+        f'🔗 <b>Ваша реферальная ссылка:</b>\n'
+        f'<code>{ref_link}</code>',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="📎 Поделиться ссылкой", url=f"https://t.me/share/url?url={ref_link}&text=Присоединяйся%20к%20казино!")],
+            [InlineKeyboardButton(text="💸 Пополнить баланс", callback_data="add_balance_from_profile")],
+            [InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_profile")]
+        ]).as_markup(),
+        disable_web_page_preview=True
+
+        @dp.message(F.text == '👤 Профиль')
+async def profile_handler(message: Message):
+    """Показ профиля пользователя"""
+    user_id = message.from_user.id
+    balance = db.get_user_balance(user_id)
+    ref_count = db.count_ref(user_id)
+    
+    # Получаем информацию о пользователе
+    username = f"@{message.from_user.username}" if message.from_user.username else "Не указан"
+    first_name = message.from_user.first_name or "Пользователь"
+    
+    # Получаем статистику игр (если есть такая функция)
+    try:
+        user_stats = db.all_stats_users(user_id) or [0, 0, 0, 0, 0, 0]
+        total_games = user_stats[0]
+        wins = user_stats[1]
+        loses = user_stats[2]
+    except:
+        total_games = 0
+        wins = 0
+        loses = 0
+    
+    # Рассчитываем процент побед
+    win_rate = (wins / total_games * 100) if total_games > 0 else 0
+    
+    # Реферальная ссылка
+    ref_link = f"https://t.me/{NICNAME}?start={user_id}"
+    
+    await message.answer(
+        f'<b>👤 Профиль игрока</b>\n\n'
+        f'🆔 <b>ID:</b> <code>{user_id}</code>\n'
+        f'👤 <b>Имя:</b> {first_name}\n'
+        f'📱 <b>Username:</b> {username}\n\n'
+        f'💰 <b>Баланс:</b> <code>{balance}$</code>\n\n'
+        f'📊 <b>Статистика игр:</b>\n'
+        f'   • 🎮 Всего игр: <code>{total_games}</code>\n'
+        f'   * ✅ Побед: <code>{wins}</code>\n'
+        f'   • ❌ Поражений: <code>{loses}</code>\n'
+        f'   • 📈 Процент побед: <code>{win_rate:.1f}%</code>\n\n'
+        f'👥 <b>Реферальная программа:</b>\n'
+        f'   • 👤 Рефералов: <code>{ref_count}</code>\n'
+        f'   • 💰 Заработано: <code>{db.refka_cheks_money(user_id)}$</code>\n\n'
+        f'🔗 <b>Ваша реферальная ссылка:</b>\n'
+        f'<code>{ref_link}</code>',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="📎 Поделиться ссылкой", url=f"https://t.me/share/url?url={ref_link}&text=Присоединяйся%20к%20казино!")],
+            [InlineKeyboardButton(text="💸 Пополнить баланс", callback_data="add_balance_from_profile")],
+            [InlineKeyboardButton(text="🔄 Обновить", callback_data="refresh_profile")]
+        ]).as_markup(),
+        disable_web_page_preview=True
+    )
+
+@dp.callback_query(F.data == "refresh_profile")
+async def refresh_profile(callback: CallbackQuery):
+    """Обновление профиля"""
+    await profile_handler(callback.message)
+
+@dp.callback_query(F.data == "add_balance_from_profile")
+async def add_balance_from_profile(callback: CallbackQuery, state: FSMContext):
+    """Пополнение баланса из профиля"""
+    await callback.message.answer(
+        '<b>💸 Пополнение баланса</b>\n\n'
+        'Введите сумму пополнения в $ (например: 0.14):',
+        reply_markup=ReplyKeyboardBuilder([
+            [KeyboardButton(text="❌ Отмена")]
+        ]).as_markup(resize_keyboard=True)
+    )
+    await state.set_state(AddBalanceUser.amount)
+    await callback.answer()
+    )
 
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
@@ -896,6 +1017,7 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
 
 
