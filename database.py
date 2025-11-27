@@ -307,13 +307,53 @@ class DataBase:
         
         return [0, 0, 0, 0, 0, 0]
 
-    def all_stats_day(self):
-        """Получение дневной статистики"""
-        return [0, 0, 0, 0, 0]
+   def all_stats_users(self, user_id):
+    """Получение статистики пользователя"""
+    try:
+        # Если у вас есть таблица со статистикой пользователей, используйте её
+        # Если нет, вернем заглушку
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_stats (
+                user_id INTEGER PRIMARY KEY,
+                total_games INTEGER DEFAULT 0,
+                wins INTEGER DEFAULT 0,
+                loses INTEGER DEFAULT 0,
+                total_bet REAL DEFAULT 0,
+                total_win REAL DEFAULT 0
+            )
+        ''')
+        
+        self.cursor.execute("SELECT * FROM user_stats WHERE user_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+        
+        if result:
+            return [result[1], result[2], result[3], result[4], result[5], 0]
+        else:
+            # Создаем запись если её нет
+            self.cursor.execute(
+                "INSERT OR IGNORE INTO user_stats (user_id) VALUES (?)", 
+                (user_id,)
+            )
+            self.conn.commit()
+            return [0, 0, 0, 0, 0, 0]
+            
+    except Exception as e:
+        logger.error(f"Ошибка all_stats_users: {e}")
+        return [0, 0, 0, 0, 0, 0]
 
     def all_stats_users(self, user_id):
         """Получение статистики пользователя"""
         return [0, 0, 0, 0, 0, 0]
+
+       def update_user_stats(self, user_id, field, value):
+    """Обновление статистики пользователя"""
+    try:
+        self.cursor.execute(f"UPDATE user_stats SET {field} = {field} + ? WHERE user_id = ?", (value, user_id))
+        self.conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка update_user_stats: {e}")
+        return False
 
     def refka_cheks_money(self, user_id):
         """Заработок с рефералов"""
@@ -333,3 +373,4 @@ class DataBase:
             self.conn.close()
         except:
             pass
+
