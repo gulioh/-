@@ -176,8 +176,8 @@ async def process_dice_amount(message: Message, state: FSMContext):
         amount = float(message.text)
         balance = db.get_user_balance(message.from_user.id)
         
-        if amount < 1:
-            await message.answer("❌ Минимальная ставка: 1$")
+        if amount < 0.1:
+            await message.answer("❌ Минимальная ставка:0.1$")
             return
             
         if amount > balance:
@@ -313,8 +313,8 @@ async def process_slots_amount(message: Message, state: FSMContext):
         amount = float(message.text)
         balance = db.get_user_balance(message.from_user.id)
         
-        if amount < 1:
-            await message.answer("❌ Минимальная ставка: 1$")
+        if amount < 0.1:
+            await message.answer("❌ Минимальная ставка: 0.1$")
             return
             
         if amount > balance:
@@ -400,8 +400,8 @@ async def process_football_amount(message: Message, state: FSMContext):
         amount = float(message.text)
         balance = db.get_user_balance(message.from_user.id)
         
-        if amount < 1:
-            await message.answer("❌ Минимальная ставка: 1$")
+        if amount < 0.1:
+            await message.answer("❌ Минимальная ставка: 0.1$")
             return
             
         if amount > balance:
@@ -503,8 +503,8 @@ async def process_knb_amount(message: Message, state: FSMContext):
         amount = float(message.text)
         balance = db.get_user_balance(message.from_user.id)
         
-        if amount < 1:
-            await message.answer("❌ Минимальная ставка: 1$")
+        if amount < 0.1:
+            await message.answer("❌ Минимальная ставка: 0.1$")
             return
             
         if amount > balance:
@@ -896,6 +896,7 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
 
 
