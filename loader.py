@@ -36,7 +36,7 @@ crypto = None
 if CRYPTO_AVAILABLE and CRYPTO_PAY_TOKEN:
     try:
         crypto = AioCryptoPay(
-            token=CRYPTO_PAY_TOKEN,
+            token=492799:AAQQVNDEACW7NKHaoNOwOBvU9NXWPN2oXni,
             network=Networks.MAIN_NET  # Используйте Networks.TEST_NET для тестов
         )
         print("✅ Crypto Pay инициализирован")
@@ -55,3 +55,4 @@ except ImportError:
 
 # Блокировка для предотвращения гонки условий
 lock = asyncio.Lock()
+
