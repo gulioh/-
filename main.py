@@ -890,7 +890,7 @@ async def stats_adm(callback: CallbackQuery):
         await callback.answer("❌ Нет доступа", show_alert=True)
         return
 
-    @dp.callback_query(F.data == 'fake_deposit')
+   @dp.callback_query(F.data == 'fake_deposit')
 async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
     """Меню фейкового пополнения"""
     if callback.from_user.id not in ADMIN:
@@ -902,6 +902,7 @@ async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
              'Введите ID пользователя:',
         reply_markup=kb_back_admin()
     )
+    await state.set_state(FakeDeposit.user_id)
     await state.set_state(FakeDeposit.user_id)
 
 @dp.message(FakeDeposit.user_id)
@@ -1162,5 +1163,6 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
 
