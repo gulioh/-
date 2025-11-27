@@ -147,6 +147,54 @@ async def stats_adm(message: Message):
 
 @dp.message(F.text == '💭 Информация')
 async def info_func(message:Message):
+    @dp.message(F.text == '💭 Информация')
+async def info_func(message:Message):
+    game_channel = safe_get_url('channals')
+    await message.answer(f'<b>💭 Информация о проекте {hlink(title=NAME_CASINO, url=game_channel)}</b>', 
+                         reply_markup=kb_info(), disable_web_page_preview=True)
+
+# ДОБАВЬТЕ ЭТИ ОБРАБОТЧИКИ ПОСЛЕ ФУНКЦИИ info_func
+
+@dp.message(F.text == '🎲 Играть')
+async def play_game_handler(message: Message):
+    """Обработчик кнопки Играть"""
+    channals_url = safe_get_url('channals')
+    command_url = safe_get_url('command_game')
+    
+    await message.answer(
+        '<b>🎲 Начать игру</b>\n\n'
+        'Чтобы начать игру:\n'
+        '1. Перейдите в игровой канал по кнопке ниже\n'
+        '2. Пополните баланс если нужно\n'
+        '3. Сделайте ставку по инструкции\n'
+        '4. Следите за результатом в канале\n\n'
+        '<b>Доступные игры:</b>\n'
+        '🎯 Кости, 🎰 Слоты, ⚽️ Футбол, 🏀 Баскетбол\n'
+        '🪨✂️📄 Камень-Ножницы-Бумага\n\n'
+        'Используйте команды из раздела "Ключевые слова"',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text='🎯 Игровой канал', url=channals_url)],
+            [InlineKeyboardButton(text='📋 Ключевые слова', url=command_url)]
+        ]).as_markup(),
+        disable_web_page_preview=True
+    )
+
+@dp.message(F.text == '💸 Пополнить баланс')
+async def add_balance_handler(message: Message):
+    """Обработчик кнопки Пополнить баланс"""
+    checks_url = safe_get_url('checks')
+    await message.answer(
+        '<b>💸 Пополнение баланса</b>\n\n'
+        'Для пополнения баланса:\n'
+        '1. Перейдите в канал с чеками по кнопке ниже\n'
+        '2. Создайте чек на нужную сумму\n'
+        '3. Отправьте чек в игровой канал\n\n'
+        'После пополнения вы сможете делать ставки!',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text='💳 Перейти к чекам', url=checks_url)]
+        ]).as_markup(),
+        disable_web_page_preview=True
+    )
     game_channel = safe_get_url()
     await message.answer(f'<b>💭 Информация о проекте {hlink(title=NAME_CASINO, url=game_channel)}</b>', 
                          reply_markup=kb_info(), disable_web_page_preview=True)
@@ -644,3 +692,4 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
