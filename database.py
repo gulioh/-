@@ -117,6 +117,17 @@ class DataBase:
         except Exception as e:
             logger.error(f"Ошибка инициализации настроек: {e}")
 
+    def get_pending_transactions(self):
+    """Получение pending транзакций"""
+    try:
+        self.cursor.execute(
+            "SELECT * FROM transactions WHERE status = 'pending' AND type = 'deposit'"
+        )
+        return self.cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Ошибка get_pending_transactions: {e}")
+        return []
+        
     def db_stats(self):
         """Инициализация статистики"""
         try:
@@ -399,3 +410,4 @@ class DataBase:
             self.conn.close()
         except:
             pass
+
