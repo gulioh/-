@@ -8,8 +8,8 @@ URL_LOG_CHANNAL = -1003213453739
 ADMIN = [5655871063]
 ADMIN_USERNAME = '@Andrew_Andreewq'
 URL_BOT = 'https://t.me/WinsLuc_bot'
-NICNAME = 'WINS 2025'
-NAME_CASINO = 'WinsLuck'
+NICNAME = 'WinsLuc_bot'
+NAME_CASINO = 'WinsLuc_bot'
 
 LIMIT_STAVKA = 100
 lose_withdraw = 20
@@ -36,4 +36,5 @@ all_text = ['Больше', 'Меньше', '1', '2', '3', '4', '5', '6', 'Пв�
 RED = ['1', '2', '3', '4', '5', '6', '7']
 BLACK = ['8', '9', '10', '11', '12', '13', '14']
 GREEN = '0'
+
 
