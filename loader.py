@@ -1,57 +1,23 @@
 import asyncio
 import logging
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
+import colorama as colorama
+from aiogram import Bot, Dispatcher, Router
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-# Попробуем импортировать aiocryptopay
-try:
-    from aiocryptopay import AioCryptoPay, Networks
-    CRYPTO_AVAILABLE = True
-except ImportError as e:
-    print(f"❌ aiocryptopay не установлен: {e}")
-    AioCryptoPay = None
-    Networks = None
-    CRYPTO_AVAILABLE = False
-
+from config import *
 from database import DataBase
+from aiogram.client.default import DefaultBotProperties
+from aiocryptopay import AioCryptoPay, Networks
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(format=u'%(filename)s [LINE:%(lineno)d] #%(levelname)-8s [%(asctime)s]  %(message)s', level=logging.INFO)
+colorama.init()
 
-# Импорт конфигурации
-from config import BOT_TOKEN, CRYPTO_PAY_TOKEN, ADMIN
-
-# Инициализация бота
-bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-storage = MemoryStorage()
-dp = Dispatcher(storage=storage)
-
-# Инициализация базы данных
+bot = Bot(token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+dp = Dispatcher()
 db = DataBase('database.db')
-
-# Инициализация Crypto Pay
-crypto = None
-if CRYPTO_AVAILABLE and CRYPTO_PAY_TOKEN:
-    try:
-        crypto = AioCryptoPay(
-            token=CRYPTO_PAY_TOKEN,
-            network=Networks.MAIN_NET
-        )
-        print("✅ Crypto Pay инициализирован")
-    except Exception as e:
-        print(f"❌ Ошибка инициализации Crypto Pay: {e}")
-        crypto = None
-else:
-    print("⚠️ Crypto Pay отключен")
-
-# Импорт административного роутера
-try:
-    from admin import admin
-except ImportError:
-    print("⚠️ Админ модуль не найден")
-    admin = None
-
-# Блокировка для предотвращения гонки условий
+crypto = AioCryptoPay(token=api_cryptobot, network=Networks.MAIN_NET)
+scheduler = AsyncIOScheduler()
+admin = Router()
 lock = asyncio.Lock()
