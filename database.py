@@ -280,3 +280,31 @@ class DataBase:
             self.conn.close()
         except:
             pass
+
+def get_user_balance(self, user_id):
+    """Получение баланса пользователя"""
+    try:
+        self.cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+        return result[0] if result else 0
+    except:
+        return 0
+
+def update_user_balance(self, user_id, amount):
+    """Обновление баланса пользователя"""
+    try:
+        self.cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
+        self.conn.commit()
+        return True
+    except:
+        return False
+
+# В функции db_start() обновите таблицу users:
+self.cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        user_id INTEGER PRIMARY KEY,
+        refer_id INTEGER,
+        balance REAL DEFAULT 0,
+        reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
