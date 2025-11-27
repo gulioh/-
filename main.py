@@ -223,6 +223,73 @@ async def dice_number_bet(callback: CallbackQuery, state: FSMContext):
             [InlineKeyboardButton(text="❌ Назад", callback_data="game_dice")]
         ]).as_markup()
     )
+@dp.callback_query(F.data.startswith("dice_bet_"))
+async def process_dice_bet(callback: CallbackQuery, state: FSMContext):
+    """Обработка ставки в кости"""
+    data = await state.get_data()
+    amount = data['amount']
+    bet_type = callback.data.split("_")[2]  # число от 1 до 6
+    
+    # Списываем ставку с баланса
+    db.update_user_balance(callback.from_user.id, -amount)
+    
+    # Обновляем статистику - увеличиваем общее количество игр
+    db.update_user_stats(callback.from_user.id, 'total_games', 1)
+    
+    # Отправляем анимацию кубика
+    dice_message = await callback.message.answer_dice(emoji="🎲")
+    dice_value = dice_message.dice.value
+    
+    # Определяем результат
+    chosen_number = int(bet_type)
+    win = (dice_value == chosen_number)
+    multiplier = 6 if win else 0
+    win_amount = amount * multiplier if win else 0
+    
+    if win:
+        # Начисляем выигрыш
+        db.update_user_balance(callback.from_user.id, win_amount)
+        # Обновляем статистику - увеличиваем победы
+        db.update_user_stats(callback.from_user.id, 'wins', 1)
+        db.update_user_stats(callback.from_user.id, 'total_win', win_amount)
+        result_text = f"🎉 <b>ПОБЕДА!</b>\nВы выиграли: {win_amount}$"
+    else:
+        # Обновляем статистику - увеличиваем поражения
+        db.update_user_stats(callback.from_user.id, 'loses', 1)
+        result_text = f"😞 <b>ПРОИГРЫШ</b>\nВы проиграли: {amount}$"
+    
+    # Обновляем общую сумму ставок
+    db.update_user_stats(callback.from_user.id, 'total_bet', amount)
+    
+    await asyncio.sleep(3)  # Ждем пока анимация кубика завершится
+    
+    new_balance = db.get_user_balance(callback.from_user.id)
+    
+    await callback.message.answer(
+        f'<b>🎯 Результат игры в кости</b>\n\n'
+        f'🎲 <b>Выпало:</b> {dice_value}\n'
+        f'🎯 <b>Ваша ставка:</b> на {chosen_number}\n'
+        f'💰 <b>Сумма ставки:</b> {amount}$\n'
+        f'📈 <b>Коэффициент:</b> x{multiplier}\n\n'
+        f'{result_text}\n\n'
+        f'💰 <b>Новый баланс:</b> {new_balance}$\n\n'
+        f'<i>Сиграть еще раз?</i>',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="🎯 Сыграть еще", callback_data="game_dice")],
+            [InlineKeyboardButton(text="👤 Профиль", callback_data="refresh_profile")],
+            [InlineKeyboardButton(text="📊 Меню игр", callback_data="back_to_games")]
+        ]).as_markup()
+    )
+    await state.clear()
+
+# === КОНЕЦ ДОБАВЛЕННОГО КОДА ===
+
+@dp.callback_query(F.data == "back_to_games")
+async def back_to_games(callback: CallbackQuery, state: FSMContext):
+    """Возврат в меню игр"""
+    await state.clear()
+    await play_game_menu(callback.message)
+
 
 @dp.callback_query(F.data.startswith("dice_bet_"))
 async def process_dice_bet(callback: CallbackQuery, state: FSMContext):
@@ -1017,6 +1084,7 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
 
 
