@@ -130,19 +130,146 @@ async def play_game_handler(message: Message):
     channals_url = safe_get_url('channals')
     command_url = safe_get_url('command_game')
     
+@dp.message(F.text == '🎲 Играть')
+async def play_game_menu(message: Message):
+    """Меню игр"""
     await message.answer(
-        '<b>🎲 Начать игру</b>\n\n'
-        'Чтобы начать игру:\n'
-        '1. Перейдите в игровой канал по кнопке ниже\n'
-        '2. Пополните баланс если нужно\n'
-        '3. Сделайте ставку по инструкции\n'
-        '4. Следите за результатом в канале\n\n'
-        'Используйте команды из раздела "Ключевые слова"',
+        '<b>🎲 Выберите игру</b>\n\n'
+        'Доступные игры:\n'
+        '🎯 <b>Кости</b> - классическая игра в кости\n'
+        '🎰 <b>Слоты</b> - игровые автоматы\n'
+        '⚽️ <b>Футбол</b> - ставки на гол/мимо\n'
+        '🪨✂️📄 <b>КНБ</b> - камень-ножницы-бумага\n\n'
+        'Выберите игру:',
         reply_markup=InlineKeyboardBuilder([
-            [InlineKeyboardButton(text='🎯 Игровой канал', url=channals_url)],
-            [InlineKeyboardButton(text='📋 Ключевые слова', url=command_url)]
-        ]).as_markup(),
-        disable_web_page_preview=True
+            [InlineKeyboardButton(text="🎯 Кости", callback_data="game_dice")],
+            [InlineKeyboardButton(text="🎰 Слоты", callback_data="game_slots")],
+            [InlineKeyboardButton(text="⚽️ Футбол", callback_data="game_football")],
+            [InlineKeyboardButton(text="🪨✂️📄 КНБ", callback_data="game_knb")]
+        ]).as_markup()
+    )
+
+@dp.callback_query(F.data == "game_dice")
+async def game_dice_menu(callback: CallbackQuery, state: FSMContext):
+    """Меню игры в кости"""
+    await callback.message.edit_text(
+        '<b>🎯 Игра в кости</b>\n\n'
+        'Правила:\n'
+        '• Ставка на число (1-6) - коэффициент x6\n'
+        '• Ставка на "Больше" (4-6) - коэффициент x2\n'
+        '• Ставка на "Меньше" (1-3) - коэффициент x2\n'
+        '• Ставка на "Чет/Нечет" - коэффициент x2\n\n'
+        'Введите сумму ставки:',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="❌ Назад", callback_data="back_to_games")]
+        ]).as_markup()
+    )
+    await state.set_state(GameDice.amount)
+
+@dp.message(GameDice.amount)
+async def process_dice_amount(message: Message, state: FSMContext):
+    """Обработка суммы ставки в кости"""
+    try:
+        amount = float(message.text)
+        # Здесь проверка баланса пользователя
+        # Если баланс >= amount, продолжаем
+        
+        await message.answer(
+            f'<b>🎯 Ставка в кости</b>\n\n'
+            f'Сумма: {amount}$\n'
+            f'Выберите тип ставки:',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣", callback_data=f"dice_number_{amount}")],
+                [InlineKeyboardButton(text="📈 Больше (4-6)", callback_data=f"dice_more_{amount}")],
+                [InlineKeyboardButton(text="📉 Меньше (1-3)", callback_data=f"dice_less_{amount}")],
+                [InlineKeyboardButton(text="2️⃣4️⃣6️⃣ Четное", callback_data=f"dice_even_{amount}")],
+                [InlineKeyboardButton(text="1️⃣3️⃣5️⃣ Нечетное", callback_data=f"dice_odd_{amount}")]
+            ]).as_markup()
+        )
+        await state.clear()
+        
+    except ValueError:
+        await message.answer("❌ Введите корректную сумму")
+
+@dp.callback_query(F.data.startswith("dice_number_"))
+async def dice_number_bet(callback: CallbackQuery):
+    """Ставка на конкретное число в костях"""
+    amount = float(callback.data.split("_")[2])
+    
+    await callback.message.edit_text(
+        f'<b>🎯 Ставка на число</b>\n\n'
+        f'Сумма: {amount}$\n'
+        f'Выберите число (1-6):',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="1️⃣", callback_data=f"dice_bet_1_{amount}"),
+             InlineKeyboardButton(text="2️⃣", callback_data=f"dice_bet_2_{amount}"),
+             InlineKeyboardButton(text="3️⃣", callback_data=f"dice_bet_3_{amount}")],
+            [InlineKeyboardButton(text="4️⃣", callback_data=f"dice_bet_4_{amount}"),
+             InlineKeyboardButton(text="5️⃣", callback_data=f"dice_bet_5_{amount}"),
+             InlineKeyboardButton(text="6️⃣", callback_data=f"dice_bet_6_{amount}")],
+            [InlineKeyboardButton(text="❌ Назад", callback_data=f"game_dice")]
+        ]).as_markup()
+    )
+
+@dp.callback_query(F.data.startswith("dice_bet_"))
+async def process_dice_bet(callback: CallbackQuery):
+    """Обработка ставки в кости"""
+    data = callback.data.split("_")
+    bet_type = data[2]  # число или more/less/even/odd
+    amount = float(data[3])
+    
+    # Отправляем анимацию кубика
+    dice_message = await callback.message.answer_dice(emoji="🎲")
+    dice_value = dice_message.dice.value
+    
+    # Определяем результат
+    win = False
+    multiplier = 1
+    
+    if bet_type.isdigit():  # Ставка на число
+        chosen_number = int(bet_type)
+        if dice_value == chosen_number:
+            win = True
+            multiplier = 6
+    elif bet_type == "more":  # Ставка на больше
+        if dice_value >= 4:
+            win = True
+            multiplier = 2
+    elif bet_type == "less":  # Ставка на меньше
+        if dice_value <= 3:
+            win = True
+            multiplier = 2
+    elif bet_type == "even":  # Ставка на четное
+        if dice_value % 2 == 0:
+            win = True
+            multiplier = 2
+    elif bet_type == "odd":  # Ставка на нечетное
+        if dice_value % 2 == 1:
+            win = True
+            multiplier = 2
+    
+    # Расчет выигрыша
+    if win:
+        win_amount = amount * multiplier
+        result_text = f"🎉 <b>ПОБЕДА!</b>\nВы выиграли: {win_amount}$"
+        # Здесь добавляем выигрыш к балансу пользователя
+    else:
+        result_text = f"😞 <b>ПРОИГРЫШ</b>\nВы проиграли: {amount}$"
+        # Здесь вычитаем ставку из баланса
+    
+    await asyncio.sleep(3)  # Ждем пока анимация кубика завершится
+    
+    await callback.message.answer(
+        f'<b>🎯 Результат игры</b>\n\n'
+        f'Выпало: {dice_value}\n'
+        f'Ставка: {amount}$\n'
+        f'Коэффициент: x{multiplier}\n\n'
+        f'{result_text}\n\n'
+        f'<i>Сыграть еще раз?</i>',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="🎯 Сыграть еще", callback_data="game_dice")],
+            [InlineKeyboardButton(text="📊 Меню игр", callback_data="back_to_games")]
+        ]).as_markup()
     )
 
 @dp.message(F.text == '💸 Пополнить баланс')
@@ -216,4 +343,5 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
