@@ -106,11 +106,25 @@ def ikb_stop():
 
 def kb_menu(user):
     keybord = ReplyKeyboardBuilder()
+    
+    # Создаем все кнопки
     kb1 = KeyboardButton(text='📎 Реферальная программа')
-    kb2 = KeyboardButton(text='👑 Админка')
+    kb2 = KeyboardButton(text='👑 Админка') 
     kb3 = KeyboardButton(text='💭 Информация')
-    kb4 = KeyboardButton(text='💸 Пополнить баланс')  # Добавляем кнопку пополнения
-    kb5 = KeyboardButton(text='🎲 Играть')  # Добавляем кнопку игры
+    kb4 = KeyboardButton(text='💸 Пополнить баланс')
+    kb5 = KeyboardButton(text='🎲 Играть')
+    kb6 = KeyboardButton(text='👤 Профиль')  # Новая кнопка профиля
+    
+    if user in ADMIN:
+        # Для админа: 3 кнопки в ряду
+        keybord.row(kb5, kb4, kb6)    # Первый ряд: Играть, Пополнить, Профиль
+        keybord.row(kb1, kb3, kb2)    # Второй ряд: Рефералка, Информация, Админка
+    else:
+        # Для обычных пользователей: 3 кнопки в ряду
+        keybord.row(kb5, kb4, kb6)    # Первый ряд: Играть, Пополнить, Профиль
+        keybord.row(kb1, kb3)         # Второй ряд: Рефералка, Информация
+        
+    return keybord.as_markup(resize_keyboard=True, input_field_placeholder='Выберите действие...')
     
     if user in ADMIN:
         keybord.add(kb1, kb3, kb4, kb5, kb2).adjust(2)  # 2 кнопки в ряд
@@ -262,5 +276,6 @@ def kb_urls():
         [InlineKeyboardButton(text='« Назад', callback_data=f'back_admin')]
     ])
     return bilder.as_markup()
+
 
 
