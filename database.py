@@ -323,4 +323,79 @@ class DataBase:
             logger.error(f"Ошибка get_all_KEF: {e}")
         
         return {
-            'KEF1': 2.0, 'K
+            'KEF1': 2.0, 'KEF2': 6.0, 'KEF3': 2.0, 'KEF4': 4.0, 'KEF5': 2.0,
+            'KEF6': 64.0, 'KEF7': 5.0, 'KEF8': 3.0, 'KEF9': 2.0, 'KEF10': 2.0,
+            'KEF11': 2.0, 'KEF12': 2.0, 'KEF13': 2.0, 'KEF14': 5.0, 'KEF15': 2.0,
+            'KEF16': 2.0, 'KEF17': 14.0
+        }
+
+    def update_kef(self, column, values):
+        """Обновление коэффициента"""
+        try:
+            self.cursor.execute(f"UPDATE kef SET {column} = ? WHERE id = 1", (values,))
+            self.conn.commit()
+        except Exception as e:
+            logger.error(f"Ошибка update_kef: {e}")
+
+    def get_cur_KEF(self, column):
+        """Получение конкретного коэффициента"""
+        try:
+            self.cursor.execute(f"SELECT {column} FROM kef WHERE id = 1")
+            result = self.cursor.fetchone()
+            return result[0] if result else 50
+        except Exception as e:
+            logger.error(f"Ошибка get_cur_KEF: {e}")
+            return 50
+
+    def get_fake_values(self):
+        """Получение значения фейк-ставок"""
+        try:
+            self.cursor.execute("SELECT fake FROM settings WHERE id = 1")
+            result = self.cursor.fetchone()
+            return result[0] if result else 0
+        except Exception as e:
+            logger.error(f"Ошибка get_fake_values: {e}")
+            return 0
+
+    def update_fake(self, value):
+        """Обновление фейк-ставок"""
+        try:
+            self.cursor.execute("UPDATE settings SET fake = ? WHERE id = 1", (value,))
+            self.conn.commit()
+        except Exception as e:
+            logger.error(f"Ошибка update_fake: {e}")
+
+    def all_stats(self):
+        """Получение общей статистики"""
+        try:
+            self.cursor.execute("SELECT * FROM stats WHERE id = 1")
+            result = self.cursor.fetchone()
+            if result:
+                return result
+        except Exception as e:
+            logger.error(f"Ошибка all_stats: {e}")
+        
+        return [0, 0, 0, 0, 0, 0]
+
+    def all_stats_day(self):
+        """Получение дневной статистики"""
+        try:
+            # Простая реализация - возвращаем те же данные что и общая статистика
+            return self.all_stats()[1:6]  # Пропускаем ID
+        except:
+            return [0, 0, 0, 0, 0]
+
+    def add_count_pay(self, user_id, text, amount):
+        """Добавление статистики платежей"""
+        pass
+
+    def add_count_pay_stats_day(self, text, amount):
+        """Добавление дневной статистики"""
+        pass
+
+    def __del__(self):
+        """Закрытие соединения при удалении объекта"""
+        try:
+            self.conn.close()
+        except:
+            pass
