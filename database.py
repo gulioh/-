@@ -8,12 +8,12 @@ class DataBase:
         self.conn = sqlite3.connect(db_file, check_same_thread=False)
         self.cursor = self.conn.cursor()
         logger.info("База данных подключена")
-        self.db_start()  # Автоматически инициализируем таблицы при создании
+        self.db_start()
 
     def db_start(self):
         """Инициализация всех таблиц"""
         try:
-            # Таблица пользователей С БАЛАНСОМ
+            # Таблица пользователей
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     user_id INTEGER PRIMARY KEY,
@@ -71,7 +71,7 @@ class DataBase:
                 )
             ''')
             
-            # Таблица транзакций для пополнений
+            # Таблица транзакций
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS transactions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,17 +117,6 @@ class DataBase:
         except Exception as e:
             logger.error(f"Ошибка инициализации настроек: {e}")
 
-    def get_pending_transactions(self):
-    """Получение pending транзакций"""
-    try:
-        self.cursor.execute(
-            "SELECT * FROM transactions WHERE status = 'pending' AND type = 'deposit'"
-        )
-        return self.cursor.fetchall()
-    except Exception as e:
-        logger.error(f"Ошибка get_pending_transactions: {e}")
-        return []
-        
     def db_stats(self):
         """Инициализация статистики"""
         try:
@@ -144,7 +133,7 @@ class DataBase:
         except Exception as e:
             logger.error(f"Ошибка инициализации URL: {e}")
 
-    # НОВЫЕ МЕТОДЫ ДЛЯ БАЛАНСА И СТАТИСТИКИ
+    # МЕТОДЫ ДЛЯ БАЛАНСА
     def get_user_balance(self, user_id):
         """Получение баланса пользователя"""
         try:
@@ -224,15 +213,24 @@ class DataBase:
             return 0
 
     def get_casino_balance(self):
-        """Получение баланса казино (сумма всех балансов пользователей с отрицательным знаком)"""
+        """Получение баланса казино"""
         try:
             self.cursor.execute("SELECT SUM(balance) FROM users")
             result = self.cursor.fetchone()
             total_balance = result[0] if result[0] else 0
-            return abs(total_balance)  # Возвращаем положительное число
+            return abs(total_balance)
         except Exception as e:
             logger.error(f"Ошибка get_casino_balance: {e}")
             return 0
+
+    def get_pending_transactions(self):
+        """Получение pending транзакций"""
+        try:
+            self.cursor.execute("SELECT * FROM transactions WHERE status = 'pending' AND type = 'deposit'")
+            return self.cursor.fetchall()
+        except Exception as e:
+            logger.error(f"Ошибка get_pending_transactions: {e}")
+            return []
 
     # СУЩЕСТВУЮЩИЕ МЕТОДЫ
     def user_exists(self, user_id):
@@ -391,8 +389,7 @@ class DataBase:
     def all_stats_day(self):
         """Получение дневной статистики"""
         try:
-            # Простая реализация - возвращаем те же данные что и общая статистика
-            return self.all_stats()[1:6]  # Пропускаем ID
+            return self.all_stats()[1:6]
         except:
             return [0, 0, 0, 0, 0]
 
@@ -410,4 +407,3 @@ class DataBase:
             self.conn.close()
         except:
             pass
-
