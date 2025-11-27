@@ -819,14 +819,33 @@ async def game_dice_menu(callback: CallbackQuery, state: FSMContext):
 
 
 @dp.message(F.text == '👑 Админка')
+async def admin_panel(message: Message):
+    """Админка из сообщения"""
+    if message.from_user.id not in ADMIN:
+        await message.answer("❌ У вас нет доступа к админ панели")
+        return
+    
+    try:
+        balance_data = await crypto.get_balance()
+        balance = balance_data[0].available if balance_data else 0
+    except:
+        balance = 0
+        
+    await message.answer(
+        text='<b>👑 Админ панель</b>\n\n'
+             f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
+             f'<i>Выберите действие:</i>',
+        reply_markup=kb_admin()
+    )
+
 @dp.callback_query(F.data == 'back_admin')
 async def back_admin_func(callback: CallbackQuery, state: FSMContext):
-    """Возврат в админ меню"""
+    """Возврат в админ меню из callback"""
     if callback.from_user.id not in ADMIN:
         await callback.answer("❌ Нет доступа", show_alert=True)
         return
     
-    await state.clear()  # ← ОЧИЩАЕМ СОСТОЯНИЕ
+    await state.clear()
     try:
         balance_data = await crypto.get_balance()
         balance = balance_data[0].available if balance_data else 0
@@ -1165,6 +1184,7 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
 
 
