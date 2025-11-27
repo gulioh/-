@@ -882,7 +882,6 @@ async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
     )
 
 # ОБНОВИТЕ ВСЕ АДМИНСКИЕ ОБРАБОТЧИКИ - добавьте проверку прав:
-
 @dp.callback_query(F.data == 'stats_project')
 async def stats_adm(callback: CallbackQuery):
     """Статистика проекта"""
@@ -890,7 +889,7 @@ async def stats_adm(callback: CallbackQuery):
         await callback.answer("❌ Нет доступа", show_alert=True)
         return
 
-   @dp.callback_query(F.data == 'fake_deposit')
+@dp.callback_query(F.data == 'fake_deposit')  # ← УБЕРИ 3 ПРОБЕЛА СЛЕВА
 async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
     """Меню фейкового пополнения"""
     if callback.from_user.id not in ADMIN:
@@ -1163,6 +1162,7 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
 
 
