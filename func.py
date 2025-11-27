@@ -15,7 +15,15 @@ from aiocryptopay.exceptions import CodeErrorFactory
 from aiogram import types
 from config import *
 from keybords import *
+from loader import db
 
+async def fake_game_adm():
+    try:
+        values_fake = db.get_fake_values()  # Теперь этот метод есть
+        # остальной код функции
+    except Exception as e:
+        print(f"Ошибка в fake_game_adm: {e}")
+        
 async def set_default_commands():
     await bot.set_my_commands([
         BotCommand(command="/start", description="Запустить бота")
@@ -489,6 +497,7 @@ async def not_game_func(amount:float, user_id, status:str, first_name, order, us
         except CodeErrorFactory as e:
             return await send_message_exeption_comments(e=e, username=username, user_id=user_id,
                                                         message_win=res.message_id, amount=amount)
+
 
 
 
