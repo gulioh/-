@@ -34,6 +34,10 @@ class NewUrlAdmin(StatesGroup):
 class AddBalanceUser(StatesGroup):
     amount = State()
 
+class FakeDeposit(StatesGroup):
+    user_id = State()
+    amount = State()
+
 class GameDice(StatesGroup):
     amount = State()
 
@@ -45,3 +49,4 @@ class GameFootball(StatesGroup):
 
 class GameKNB(StatesGroup):
     amount = State()
+
