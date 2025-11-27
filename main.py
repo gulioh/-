@@ -125,22 +125,22 @@ async def info_func(message:Message):
     await message.answer(f'<b>💭 Информация о проекте {hlink(title=NAME_CASINO, url=game_channel)}</b>', 
                          reply_markup=kb_info(), disable_web_page_preview=True)
 
-@dp.message(F.text == '🎲 Играть')
-async def play_game_handler(message: Message):
-    channals_url = safe_get_url('channals')
-    command_url = safe_get_url('command_game')
-    
+# ДОБАВЬТЕ ЭТИ ОБРАБОТЧИКИ ИГР
+
 @dp.message(F.text == '🎲 Играть')
 async def play_game_menu(message: Message):
-    """Меню игр"""
+    """Меню выбора игры"""
+    balance = db.get_user_balance(message.from_user.id)
+    
     await message.answer(
-        '<b>🎲 Выберите игру</b>\n\n'
-        'Доступные игры:\n'
-        '🎯 <b>Кости</b> - классическая игра в кости\n'
-        '🎰 <b>Слоты</b> - игровые автоматы\n'
-        '⚽️ <b>Футбол</b> - ставки на гол/мимо\n'
-        '🪨✂️📄 <b>КНБ</b> - камень-ножницы-бумага\n\n'
-        'Выберите игру:',
+        f'<b>🎲 Выберите игру</b>\n\n'
+        f'💰 <b>Ваш баланс:</b> {balance}$\n\n'
+        f'<b>Доступные игры:</b>\n'
+        f'🎯 <b>Кости</b> - классическая игра в кости\n'
+        f'🎰 <b>Слоты</b> - игровые автоматы\n'
+        f'⚽️ <b>Футбол</b> - ставки на гол/мимо\n'
+        f'🪨✂️📄 <b>КНБ</b> - камень-ножницы-бумага\n\n'
+        f'<i>Выберите игру:</i>',
         reply_markup=InlineKeyboardBuilder([
             [InlineKeyboardButton(text="🎯 Кости", callback_data="game_dice")],
             [InlineKeyboardButton(text="🎰 Слоты", callback_data="game_slots")],
@@ -148,6 +148,197 @@ async def play_game_menu(message: Message):
             [InlineKeyboardButton(text="🪨✂️📄 КНБ", callback_data="game_knb")]
         ]).as_markup()
     )
+
+@dp.callback_query(F.data == "game_dice")
+async def game_dice_menu(callback: CallbackQuery, state: FSMContext):
+    """Меню игры в кости"""
+    balance = db.get_user_balance(callback.from_user.id)
+    
+    await callback.message.edit_text(
+        f'<b>🎯 Игра в кости</b>\n\n'
+        f'💰 <b>Баланс:</b> {balance}$\n\n'
+        f'<b>Правила:</b>\n'
+        f'• Ставка на число (1-6) - коэффициент x6\n'
+        f'• Ставка на "Больше" (4-6) - коэффициент x2\n'
+        f'• Ставка на "Меньше" (1-3) - коэффициент x2\n'
+        f'• Ставка на "Чет/Нечет" - коэффициент x2\n\n'
+        f'<b>Введите сумму ставки:</b>',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="❌ Назад", callback_data="back_to_games")]
+        ]).as_markup()
+    )
+    await state.set_state(GameDice.amount)
+
+@dp.message(GameDice.amount)
+async def process_dice_amount(message: Message, state: FSMContext):
+    """Обработка суммы ставки в кости"""
+    try:
+        amount = float(message.text)
+        balance = db.get_user_balance(message.from_user.id)
+        
+        if amount < 1:
+            await message.answer("❌ Минимальная ставка: 1$")
+            return
+            
+        if amount > balance:
+            await message.answer(f"❌ Недостаточно средств. Ваш баланс: {balance}$")
+            return
+        
+        await state.update_data(amount=amount)
+        
+        await message.answer(
+            f'<b>🎯 Ставка в кости</b>\n\n'
+            f'💰 <b>Сумма:</b> {amount}$\n'
+            f'<b>Выберите тип ставки:</b>',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣ 6️⃣", callback_data="dice_number")],
+                [InlineKeyboardButton(text="📈 Больше (4-6)", callback_data="dice_more")],
+                [InlineKeyboardButton(text="📉 Меньше (1-3)", callback_data="dice_less")],
+                [InlineKeyboardButton(text="2️⃣4️⃣6️⃣ Четное", callback_data="dice_even")],
+                [InlineKeyboardButton(text="1️⃣3️⃣5️⃣ Нечетное", callback_data="dice_odd")],
+                [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_game")]
+            ]).as_markup()
+        )
+        
+    except ValueError:
+        await message.answer("❌ Введите корректную сумму (например: 10)")
+
+@dp.callback_query(F.data == "dice_number")
+async def dice_number_bet(callback: CallbackQuery, state: FSMContext):
+    """Ставка на конкретное число в костях"""
+    data = await state.get_data()
+    amount = data['amount']
+    
+    await callback.message.edit_text(
+        f'<b>🎯 Ставка на число</b>\n\n'
+        f'💰 <b>Сумма:</b> {amount}$\n'
+        f'<b>Выберите число (1-6):</b>',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="1️⃣", callback_data="dice_bet_1"),
+             InlineKeyboardButton(text="2️⃣", callback_data="dice_bet_2"),
+             InlineKeyboardButton(text="3️⃣", callback_data="dice_bet_3")],
+            [InlineKeyboardButton(text="4️⃣", callback_data="dice_bet_4"),
+             InlineKeyboardButton(text="5️⃣", callback_data="dice_bet_5"),
+             InlineKeyboardButton(text="6️⃣", callback_data="dice_bet_6")],
+            [InlineKeyboardButton(text="❌ Назад", callback_data="game_dice")]
+        ]).as_markup()
+    )
+
+@dp.callback_query(F.data.startswith("dice_bet_"))
+async def process_dice_bet(callback: CallbackQuery, state: FSMContext):
+    """Обработка ставки в кости"""
+    data = await state.get_data()
+    amount = data['amount']
+    bet_type = callback.data.split("_")[2]  # число от 1 до 6
+    
+    # Списываем ставку с баланса
+    db.update_user_balance(callback.from_user.id, -amount)
+    
+    # Отправляем анимацию кубика
+    dice_message = await callback.message.answer_dice(emoji="🎲")
+    dice_value = dice_message.dice.value
+    
+    # Определяем результат
+    chosen_number = int(bet_type)
+    win = (dice_value == chosen_number)
+    multiplier = 6 if win else 0
+    win_amount = amount * multiplier if win else 0
+    
+    if win:
+        # Начисляем выигрыш
+        db.update_user_balance(callback.from_user.id, win_amount)
+        result_text = f"🎉 <b>ПОБЕДА!</b>\nВы выиграли: {win_amount}$"
+    else:
+        result_text = f"😞 <b>ПРОИГРЫШ</b>\nВы проиграли: {amount}$"
+    
+    await asyncio.sleep(3)  # Ждем пока анимация кубика завершится
+    
+    new_balance = db.get_user_balance(callback.from_user.id)
+    
+    await callback.message.answer(
+        f'<b>🎯 Результат игры в кости</b>\n\n'
+        f'🎲 <b>Выпало:</b> {dice_value}\n'
+        f'🎯 <b>Ваша ставка:</b> на {chosen_number}\n'
+        f'💰 <b>Сумма ставки:</b> {amount}$\n'
+        f'📈 <b>Коэффициент:</b> x{multiplier}\n\n'
+        f'{result_text}\n\n'
+        f'💰 <b>Новый баланс:</b> {new_balance}$\n\n'
+        f'<i>Сыграть еще раз?</i>',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="🎯 Сыграть еще", callback_data="game_dice")],
+            [InlineKeyboardButton(text="📊 Меню игр", callback_data="back_to_games")]
+        ]).as_markup()
+    )
+    await state.clear()
+
+@dp.callback_query(F.data == "back_to_games")
+async def back_to_games(callback: CallbackQuery, state: FSMContext):
+    """Возврат в меню игр"""
+    await state.clear()
+    await play_game_menu(callback.message)
+
+@dp.callback_query(F.data == "cancel_game")
+async def cancel_game(callback: CallbackQuery, state: FSMContext):
+    """Отмена игры"""
+    await state.clear()
+    await callback.message.edit_text("❌ Игра отменена")
+    await play_game_menu(callback.message)
+
+# ДОБАВЬТЕ ОБРАБОТЧИК ПОПОЛНЕНИЯ БАЛАНСА
+
+@dp.message(F.text == '💸 Пополнить баланс')
+async def add_balance_user(message: Message, state: FSMContext):
+    """Пополнение баланса через Crypto Bot"""
+    await message.answer(
+        '<b>💸 Пополнение баланса</b>\n\n'
+        'Введите сумму пополнения в $ (например: 10):',
+        reply_markup=ReplyKeyboardBuilder([
+            [KeyboardButton(text="❌ Отмена")]
+        ]).as_markup(resize_keyboard=True)
+    )
+    await state.set_state(AddBalanceUser.amount)
+
+@dp.message(AddBalanceUser.amount)
+async def process_add_balance(message: Message, state: FSMContext):
+    """Обработка суммы пополнения"""
+    try:
+        amount = float(message.text)
+        if amount < 1:
+            await message.answer("❌ Минимальная сумма пополнения: 1$")
+            return
+        
+        # Создаем инвойс через Crypto Bot
+        invoice = await crypto.create_invoice(
+            asset='USDT',
+            amount=amount,
+            description=f'Пополнение баланса для пользователя {message.from_user.id}'
+        )
+        
+        # Добавляем транзакцию в БД
+        db.add_transaction(
+            user_id=message.from_user.id,
+            transaction_type='deposit',
+            amount=amount,
+            status='pending',
+            description=f'Invoice: {invoice.invoice_id}'
+        )
+        
+        await message.answer(
+            f'<b>💸 Счет на оплату</b>\n\n'
+            f'<b>Сумма:</b> {amount}$\n'
+            f'<b>Статус:</b> Ожидание оплаты\n\n'
+            f'Оплатите счет в течение 15 минут',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="💳 Оплатить", url=invoice.bot_invoice_url)],
+                [InlineKeyboardButton(text="✅ Проверить оплату", callback_data=f"check_payment_{invoice.invoice_id}")]
+            ]).as_markup()
+        )
+        await state.clear()
+        
+    except ValueError:
+        await message.answer("❌ Введите корректную сумму (например: 10)")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка создания счета: {e}")
 
 @dp.callback_query(F.data == "game_dice")
 async def game_dice_menu(callback: CallbackQuery, state: FSMContext):
@@ -343,5 +534,6 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
 
