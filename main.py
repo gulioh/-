@@ -819,11 +819,54 @@ async def game_dice_menu(callback: CallbackQuery, state: FSMContext):
 
 
 @dp.message(F.text == '👑 Админка')
-async def admin_panel(message: Message):
-    """Проверка админских прав и показ админки"""
-    if message.from_user.id not in ADMIN:
-        await message.answer("❌ У вас нет доступа к админ панели")
+@dp.callback_query(F.data == 'back_admin')
+async def back_admin_func(callback: CallbackQuery, state: FSMContext):
+    """Возврат в админ меню"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
         return
+    
+    await state.clear()  # ← ОЧИЩАЕМ СОСТОЯНИЕ
+    try:
+        balance_data = await crypto.get_balance()
+        balance = balance_data[0].available if balance_data else 0
+    except:
+        balance = 0
+        
+    await callback.message.edit_text(
+        text='<b>👑 Админ панель</b>\n\n'
+             f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
+             f'<i>Выберите действие:</i>',
+        reply_markup=kb_admin()
+    )
+
+@dp.callback_query(F.data == 'fake_deposit')
+async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
+    """Меню фейкового пополнения"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await callback.message.edit_text(
+        text='<b>💰 Фейк пополнение баланса</b>\n\n'
+             'Введите ID пользователя:',
+        reply_markup=kb_back_admin()
+    )
+    await state.set_state(FakeDeposit.user_id)
+    
+    await state.clear()  # ← ОЧИЩАЕМ СОСТОЯНИЕ
+    try:
+        balance_data = await crypto.get_balance()
+        balance = balance_data[0].available if balance_data else 0
+    except:
+        balance = 0
+        
+    await callback.message.edit_text(
+        text='<b>👑 Админ панель</b>\n\n'
+             f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
+             f'<i>Выберите действие:</i>',
+        reply_markup=kb_admin()
+    )
     
     try:
         balance_data = await crypto.get_balance()
@@ -835,7 +878,7 @@ async def admin_panel(message: Message):
         text='<b>👑 Админ панель</b>\n\n'
              f'💰 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>\n\n'
              f'<i>Выберите действие:</i>',
-        reply_markup=kb_admin()
+        reply_markup=kb_admin() 
     )
 
 # ОБНОВИТЕ ВСЕ АДМИНСКИЕ ОБРАБОТЧИКИ - добавьте проверку прав:
@@ -846,7 +889,88 @@ async def stats_adm(callback: CallbackQuery):
     if callback.from_user.id not in ADMIN:
         await callback.answer("❌ Нет доступа", show_alert=True)
         return
+
+    @dp.callback_query(F.data == 'fake_deposit')
+async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
+    """Меню фейкового пополнения"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
     
+    await callback.message.edit_text(
+        text='<b>💰 Фейк пополнение баланса</b>\n\n'
+             'Введите ID пользователя:',
+        reply_markup=kb_back_admin()
+    )
+    await state.set_state(FakeDeposit.user_id)
+
+@dp.message(FakeDeposit.user_id)
+async def process_fake_deposit_user_id(message: Message, state: FSMContext):
+    """Обработка ID пользователя для фейк пополнения"""
+    try:
+        user_id = int(message.text)
+        await state.update_data(user_id=user_id)
+        
+        await message.answer(
+            '<b>💰 Фейк пополнение баланса</b>\n\n'
+            f'Пользователь: <code>{user_id}</code>\n'
+            'Введите сумму пополнения ($):',
+            reply_markup=kb_back_admin()
+        )
+        await state.set_state(FakeDeposit.amount)
+        
+    except ValueError:
+        await message.answer('❌ Введите корректный ID пользователя (число)')
+
+@dp.message(FakeDeposit.amount)
+async def process_fake_deposit_amount(message: Message, state: FSMContext):
+    """Обработка суммы фейк пополнения"""
+    try:
+        amount = float(message.text)
+        data = await state.get_data()
+        user_id = data['user_id']
+        
+        if amount <= 0:
+            await message.answer('❌ Сумма должна быть больше 0')
+            return
+        
+        # Пополняем баланс
+        db.update_user_balance(user_id, amount)
+        
+        # Добавляем запись в транзакции
+        db.add_transaction(
+            user_id=user_id,
+            transaction_type='fake_deposit',
+            amount=amount,
+            status='completed',
+            description=f'Фейк пополнение от админа {message.from_user.id}'
+        )
+        
+        await message.answer(
+            f'✅ <b>Баланс пользователя {user_id} пополнен на {amount}$</b>\n\n'
+            f'💳 <b>Сумма:</b> {amount}$\n'
+            f'👤 <b>Пользователь:</b> <code>{user_id}</code>\n'
+            f'🆔 <b>Админ:</b> <code>{message.from_user.id}</code>',
+            reply_markup=kb_back_admin()
+        )
+        
+        # Пытаемся уведомить пользователя
+        try:
+            await bot.send_message(
+                user_id,
+                f'🎉 <b>Ваш баланс пополнен на {amount}$</b>\n\n'
+                f'💰 <b>Сумма:</b> {amount}$\n'
+                f'📝 <b>Тип:</b> Административное пополнение\n\n'
+                f'💳 <b>Текущий баланс:</b> {db.get_user_balance(user_id)}$'
+            )
+        except:
+            pass
+            
+        await state.clear()
+        
+    except ValueError:
+        await message.answer('❌ Введите корректную сумму')
+        
     try:
         stats = db.all_stats() or [0, 0, 0, 0, 0, 0]
         balance_data = await crypto.get_balance()
@@ -1038,4 +1162,5 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
