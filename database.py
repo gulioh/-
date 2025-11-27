@@ -48,13 +48,13 @@ class DataBase:
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS url (
                     id INTEGER PRIMARY KEY,
-                    channals TEXT DEFAULT "https://t.me/telegram",
-                    checks TEXT DEFAULT "https://t.me/telegram",
-                    rules TEXT DEFAULT "https://t.me/telegram",
-                    transfer TEXT DEFAULT "https://t.me/telegram",
-                    command_game TEXT DEFAULT "https://t.me/telegram",
-                    info_stavka TEXT DEFAULT "https://t.me/telegram",
-                    news TEXT DEFAULT "https://t.me/telegram"
+                    channals TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
+                    checks TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
+                    rules TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
+                    transfer TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
+                    command_game TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
+                    info_stavka TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy",
+                    news TEXT DEFAULT "https://t.me/+u6NEVaY6PVxiZTYy"
                 )
             ''')
             
@@ -72,15 +72,15 @@ class DataBase:
             ''')
             
             # Таблица транзакций
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS transactions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER,
-                    type TEXT,
-                    amount REAL,
-                    status TEXT,
-                    description TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          # В функции db_start() обновите таблицу users:
+self.cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        user_id INTEGER PRIMARY KEY,
+        refer_id INTEGER,
+        balance REAL DEFAULT 0,
+        reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+''')
                 )
             ''')
             
@@ -134,25 +134,23 @@ class DataBase:
             logger.error(f"Ошибка инициализации URL: {e}")
 
     # МЕТОДЫ ДЛЯ БАЛАНСА
-    def get_user_balance(self, user_id):
-        """Получение баланса пользователя"""
-        try:
-            self.cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
-            result = self.cursor.fetchone()
-            return result[0] if result else 0
-        except Exception as e:
-            logger.error(f"Ошибка get_user_balance: {e}")
-            return 0
+ def get_user_balance(self, user_id):
+    """Получение баланса пользователя"""
+    try:
+        self.cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+        result = self.cursor.fetchone()
+        return result[0] if result else 0
+    except:
+        return 0
 
-    def update_user_balance(self, user_id, amount):
-        """Обновление баланса пользователя"""
-        try:
-            self.cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
-            self.conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"Ошибка update_user_balance: {e}")
-            return False
+def update_user_balance(self, user_id, amount):
+    """Обновление баланса пользователя"""
+    try:
+        self.cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
+        self.conn.commit()
+        return True
+    except:
+        return False
 
     def add_transaction(self, user_id, transaction_type, amount, status, description):
         """Добавление транзакции"""
@@ -407,3 +405,4 @@ class DataBase:
             self.conn.close()
         except:
             pass
+
