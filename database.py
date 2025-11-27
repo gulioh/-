@@ -1,5 +1,10 @@
 import sqlite3
 import logging
+import sqlite3
+import logging
+from datetime import datetime  # ДОБАВЬ ЭТУ СТРОКУ
+
+logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -295,17 +300,59 @@ def get_URL(self):
         except Exception as e:
             logger.error(f"Ошибка update_fake: {e}")
 
-    def all_stats(self):
-        """Получение общей статистики"""
+       def all_stats(self):
+        """Получение общей статистики казино"""
         try:
             self.cursor.execute("SELECT * FROM stats WHERE id = 1")
             result = self.cursor.fetchone()
             if result:
                 return result
+            
+            # Если записи нет, создаем её
+            self.cursor.execute('''
+                INSERT INTO stats (id, games, wins, loses, payouts, income, users_count) 
+                VALUES (1, 0, 0, 0, 0, 0, 0)
+            ''')
+            self.conn.commit()
+            return [1, 0, 0, 0, 0, 0, 0]
+            
         except Exception as e:
             logger.error(f"Ошибка all_stats: {e}")
-        
-        return [0, 0, 0, 0, 0, 0]
+            return [1, 0, 0, 0, 0, 0, 0]
+
+    def all_stats_day(self):
+        """Получение дневной статистики"""
+        try:
+            # Создаем таблицу для дневной статистики если её нет
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS stats_day (
+                    id INTEGER PRIMARY KEY,
+                    date TEXT DEFAULT CURRENT_DATE,
+                    games INTEGER DEFAULT 0,
+                    wins INTEGER DEFAULT 0,
+                    loses INTEGER DEFAULT 0,
+                    income REAL DEFAULT 0,
+                    payouts REAL DEFAULT 0
+                )
+            ''')
+            
+            today = datetime.now().strftime('%Y-%m-%d')
+            self.cursor.execute("SELECT * FROM stats_day WHERE date = ?", (today,))
+            result = self.cursor.fetchone()
+            
+            if result:
+                return [result[2], result[3], result[4], result[5], result[6]]  # games, wins, loses, income, payouts
+            else:
+                # Создаем запись на сегодня
+                self.cursor.execute('''
+                    INSERT INTO stats_day (date) VALUES (?)
+                ''', (today,))
+                self.conn.commit()
+                return [0, 0, 0, 0, 0]
+                
+        except Exception as e:
+            logger.error(f"Ошибка all_stats_day: {e}")
+            return [0, 0, 0, 0, 0]
 
     def all_stats_users(self, user_id):
         """Получение статистики пользователя"""
@@ -366,6 +413,7 @@ def get_URL(self):
             self.conn.close()
         except:
             pass
+
 
 
 
