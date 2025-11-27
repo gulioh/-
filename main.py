@@ -99,16 +99,6 @@ async def chek_captcha(callback: CallbackQuery, state: FSMContext):
 @dp.message(F.text == '💸 Пополнить баланс')
 async def add_balance_user(message: Message, state: FSMContext):
     """Пополнение баланса через Crypto Bot"""
-    if not crypto:
-        await message.answer(
-            "❌ Сервис пополнения временно недоступен\n\n"
-            "💳 Для пополнения баланса обратитесь к администратору",
-            reply_markup=InlineKeyboardBuilder([
-                [InlineKeyboardButton(text="📞 Связаться с админом", url="https://t.me/your_admin")]
-            ]).as_markup()
-        )
-        return
-    
     await message.answer(
         '<b>💸 Пополнение баланса</b>\n\n'
         'Введите сумму пополнения в $ (например: 10):',
@@ -117,6 +107,39 @@ async def add_balance_user(message: Message, state: FSMContext):
         ]).as_markup(resize_keyboard=True)
     )
     await state.set_state(AddBalanceUser.amount)
+
+@dp.message(AddBalanceUser.amount)
+async def process_add_balance(message: Message, state: FSMContext):
+    """Обработка суммы пополнения"""
+    try:
+        amount = float(message.text)
+        if amount < 1:
+            await message.answer("❌ Минимальная сумма пополнения: 1$")
+            return
+        
+        # Создаем инвойс через Crypto Bot
+        invoice = await crypto.create_invoice(
+            asset='USDT',
+            amount=amount,
+            description=f'Пополнение баланса для пользователя {message.from_user.id}'
+        )
+        
+        await message.answer(
+            f'<b>💸 Счет на оплату</b>\n\n'
+            f'<b>Сумма:</b> {amount}$\n'
+            f'<b>Статус:</b> Ожидание оплаты\n\n'
+            f'Оплатите счет в течение 15 минут',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="💳 Оплатить", url=invoice.bot_invoice_url)],
+                [InlineKeyboardButton(text="✅ Проверить оплату", callback_data=f"check_payment_{invoice.invoice_id}")]
+            ]).as_markup()
+        )
+        await state.clear()
+        
+    except ValueError:
+        await message.answer("❌ Введите корректную сумму (например: 10)")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка создания счета: {e}")
 
 @dp.message(AddBalanceUser.amount)
 async def process_add_balance(message: Message, state: FSMContext):
@@ -565,3 +588,4 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
