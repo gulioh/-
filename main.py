@@ -889,12 +889,19 @@ async def stats_adm(callback: CallbackQuery):
         await callback.answer("❌ Нет доступа", show_alert=True)
         return
 
-@dp.callback_query(F.data == 'fake_deposit')  # ← УБЕРИ 3 ПРОБЕЛА СЛЕВА
+@dp.callback_query(F.data == 'fake_deposit')
 async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
     """Меню фейкового пополнения"""
     if callback.from_user.id not in ADMIN:
         await callback.answer("❌ Нет доступа", show_alert=True)
         return
+    
+    await callback.message.edit_text(
+        text='<b>💰 Фейк пополнение баланса</b>\n\n'
+             'Введите ID пользователя:',
+        reply_markup=kb_back_admin()
+    )
+    await state.set_state(FakeDeposit.user_id)
     
     await callback.message.edit_text(
         text='<b>💰 Фейк пополнение баланса</b>\n\n'
@@ -983,70 +990,40 @@ async def process_fake_deposit_amount(message: Message, state: FSMContext):
         
     # ... остальной код статистики
 
-@dp.callback_query(F.data == 'stats_user')
-async def stats_adm(callback: CallbackQuery, state: FSMContext):
-    """Статистика пользователя"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    await callback.message.edit_text('<b>Введите id игрока</b>', reply_markup=kb_back_admin())
-    await state.set_state(UserStats.user_id)
-
-@dp.callback_query(F.data == 'add_balance')
-async def stats_adm(callback: CallbackQuery, state: FSMContext):
-    """Пополнение баланса казино"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    await callback.message.edit_text(text='<b>Введите сумму в $</b>', reply_markup=kb_back_admin())
-    await state.set_state(AddBalanceCasino.amount)
-
-@dp.callback_query(F.data == 'settings_fake')
-async def fake_game_adm(callback: CallbackQuery):
-    """Настройки фейк ставок"""
+@dp.callback_query(F.data == 'stats_project')
+async def stats_adm(callback: CallbackQuery):
+    """Статистика проекта"""
     if callback.from_user.id not in ADMIN:
         await callback.answer("❌ Нет доступа", show_alert=True)
         return
     
     try:
-        values_fake = db.get_fake_values()
+        stats = db.all_stats() or [0, 0, 0, 0, 0, 0]
+        balance_data = await crypto.get_balance()
+        balance = balance_data[0].available if balance_data else 0
+        info_day = db.all_stats_day() or [0, 0, 0, 0, 0]
     except:
-        values_fake = 0
+        stats = [0, 0, 0, 0, 0, 0]
+        balance = 0
+        info_day = [0, 0, 0, 0, 0]
         
     await callback.message.edit_text(
-        text='<b>👀 Настройки фейк ставок</b>\n\n'
-             f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.\n\n'
-             f'<i>Включить/выключить фейк ставки:</i>', 
-        reply_markup=kb_fake_switch(values_fake)
+        text=f'<b>📊 Статистика проекта</b>\n\n'
+             f'👥 <b>Всего пользователей:</b> <code>{len(db.all_user())}</code>\n'
+             f'🎮 <b>Всего игр:</b> <code>{stats[1]}</code>\n'
+             f'✅ <b>Побед:</b> <code>{stats[2]}</code>\n'
+             f'❌ <b>Поражений:</b> <code>{stats[3]}</code>\n'
+             f'💸 <b>Выплаты:</b> <code>{stats[4]}$</code>\n'
+             f'💰 <b>Доход:</b> <code>{stats[5]}$</code>\n\n'
+             f'<b>📈 За сегодня:</b>\n'
+             f'🎮 <b>Игры:</b> <code>{info_day[0]}</code>\n'
+             f'✅ <b>Побед:</b> <code>{info_day[1]}</code>\n'
+             f'❌ <b>Поражений:</b> <code>{info_day[2]}</code>\n'
+             f'💸 <b>Выплаты:</b> <code>{info_day[3]}$</code>\n'
+             f'💰 <b>Доход:</b> <code>{info_day[4]}$</code>\n\n'
+             f'💳 <b>Баланс казино:</b> <code>{round(float(balance), 2)}$</code>',
+        reply_markup=kb_back_admin()
     )
-
-@dp.callback_query(F.data.startswith('fake'))
-async def fake_switch_func(callback: CallbackQuery):
-    """Переключение фейк ставок"""
-    if callback.from_user.id not in ADMIN:
-        await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
-    values_fake = callback.data.split('|')[1]
-    try:
-        if int(values_fake):
-            db.update_fake(0)
-        if int(values_fake) == 0:
-            db.update_fake(1)
-
-        values_fake = db.get_fake_values()
-    except:
-        values_fake = 0
-        
-    await callback.message.edit_text(
-        text='<b>👀 Настройки фейк ставок</b>\n\n'
-             f'Текущий интервал игр: ⌛️ <code>{TIMER}</code> сек.\n\n'
-             f'<i>Включить/выключить фейк ставки:</i>',
-        reply_markup=kb_fake_switch(int(values_fake))
-    )
-    await callback.answer('✅ Настройки обновлены')
 
 @dp.callback_query(F.data == 'kef_edit')
 async def kef_edit_adm(callback: CallbackQuery):
@@ -1083,6 +1060,32 @@ async def knb_settings_func(callback: CallbackQuery):
              f'<b>Текущее значение:</b> {cur_procent}%', 
         reply_markup=kb_KNB_twist(cur_procent)
     )
+
+@dp.callback_query(F.data == 'fake_deposit')
+async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
+    """Меню фейкового пополнения"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await callback.message.edit_text(
+        text='<b>💰 Фейк пополнение баланса</b>\n\n'
+             'Введите ID пользователя:',
+        reply_markup=kb_back_admin()
+    )
+    await state.set_state(FakeDeposit.user_id)@dp.callback_query(F.data == 'fake_deposit')
+async def fake_deposit_menu(callback: CallbackQuery, state: FSMContext):
+    """Меню фейкового пополнения"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    
+    await callback.message.edit_text(
+        text='<b>💰 Фейк пополнение баланса</b>\n\n'
+             'Введите ID пользователя:',
+        reply_markup=kb_back_admin()
+    )
+    await state.set_state(FakeDeposit.user_id)
 
 @dp.callback_query(F.data == 'all_message_send')
 async def all_message_send_func(callback: CallbackQuery):
@@ -1162,6 +1165,7 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
 
 
 
