@@ -612,6 +612,58 @@ async def game_football_info(callback: CallbackQuery):
     )
 
 # ФУТБОЛ - ИГРА
+@dp.callback_query(F.data == "game_football")
+async def game_football_menu(callback: CallbackQuery, state: FSMContext):
+    """Меню игры в футбол"""
+    balance = db.get_user_balance(callback.from_user.id)
+    
+    if balance < 0.1:
+        await callback.answer("❌ Недостаточно средств. Минимальная ставка: 0.1$", show_alert=True)
+        return
+    
+    await callback.message.edit_text(
+        f'<b>⚽️ Футбол</b>\n\n'
+        f'💰 <b>Ваш баланс:</b> {balance}$\n\n'
+        f'<b>Введите сумму ставки:</b>\n'
+        f'<i>Минимальная ставка: 0.1$</i>',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="❌ Назад", callback_data="game_football_info")]
+        ]).as_markup()
+    )
+    await state.set_state(GameFootball.amount)
+
+@dp.message(GameFootball.amount)
+async def process_football_amount(message: Message, state: FSMContext):
+    """Обработка суммы ставки в футбол"""
+    try:
+        amount = float(message.text)
+        user_id = message.from_user.id
+        balance = db.get_user_balance(user_id)
+        
+        if amount < 0.1:
+            await message.answer("❌ Минимальная ставка: 0.1$")
+            return
+            
+        if amount > balance:
+            await message.answer(f"❌ Недостаточно средств. Ваш баланс: {balance}$")
+            return
+        
+        await state.update_data(amount=amount)
+        
+        await message.answer(
+            f'<b>⚽️ Ставка в футбол</b>\n\n'
+            f'💰 <b>Сумма ставки:</b> {amount}$\n'
+            f'<b>Выберите тип ставки:</b>',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="⚽️ Гол (3-5 очков)", callback_data="football_goal")],
+                [InlineKeyboardButton(text="❌ Мимо (1-2 очка)", callback_data="football_miss")],
+                [InlineKeyboardButton(text="❌ Отмена", callback_data="game_football_info")]
+            ]).adjust(1).as_markup()
+        )
+        
+    except ValueError:
+        await message.answer("❌ Введите корректную сумму (например: 0.5)")
+
 @dp.callback_query(F.data.startswith("football_"), GameFootball.amount)
 async def process_football_bet(callback: CallbackQuery, state: FSMContext):
     """Обработка ставки в футбол"""
@@ -685,20 +737,44 @@ async def process_football_bet(callback: CallbackQuery, state: FSMContext):
         logger.error(f"Ошибка в process_football_bet: {e}")
         await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
         await state.clear()
-        # Определяем результат
-        win = False
-        multiplier = 2
-        
-        if bet_type == "goal" and football_value >= 3:  # Гол (3-5 очков)
-            win = True
-        elif bet_type == "miss" and football_value <= 2:  # Мимо (1-2 очка)
-            win = True
-        
-        win_amount = amount * multiplier if win else 0
-        
-        if win:
-            db.update_user_balance(user_id, win_amount)
-            db.update_user_stats(user_id, 'wins', 1)
-            db.update_user_stats(user_id, 'total_win', win_amount)
-            result_text = f
 
+# КНБ - ИНФОРМАЦИЯ
+@dp.callback_query(F.data == "game_knb_info")
+async def game_knb_info(callback: CallbackQuery):
+    """Информация об игре камень-ножницы-бумага"""
+    await callback.message.edit_text(
+        '<b>🪨✂️📄 Камень-Ножницы-Бумага</b>\n\n'
+        '<b>📖 Правила игры:</b>\n'
+        '• Классическая игра на удачу\n'
+        '• Камень бьет ножницы\n'
+        '• Ножницы бьют бумагу\n'
+        '• Бумага бьет камень\n\n'
+        '<b>🎮 Коэффициент: x2</b>\n'
+        '<b>💰 Минимальная ставка: 0.1$</b>\n\n'
+        '<i>Готовы сделать ставку?</i>',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="🪨✂️📄 Сделать ставку", callback_data="game_knb")],
+            [InlineKeyboardButton(text="📊 Меню игр", callback_data="back_to_games")]
+        ]).adjust(1).as_markup()
+    )
+
+# КНБ - ИГРА (базовый обработчик)
+@dp.callback_query(F.data == "game_knb")
+async def game_knb_menu(callback: CallbackQuery):
+    """Меню игры в камень-ножницы-бумага"""
+    await callback.answer("🎮 Игра в разработке!", show_alert=True)
+
+async def main():
+    """Основная функция запуска бота"""
+    try:
+        logger.info("🤖 Бот запускается...")
+        print("✅ Бот успешно запущен!")
+        await dp.start_polling(bot)
+    except Exception as e:
+        logger.error(f"❌ Ошибка при запуске бота: {e}")
+        print(f"❌ Ошибка: {e}")
+    finally:
+        await bot.session.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
