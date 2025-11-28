@@ -111,7 +111,7 @@ def kb_menu(user):
     kb1 = KeyboardButton(text='📎 Реферальная программа')
     kb2 = KeyboardButton(text='👑 Админка') 
     kb3 = KeyboardButton(text='💭 Информация')
-    kb4 = KeyboardButton(text='💸 Пополнить баланс')
+    kb4 = KeyboardButton(text='💸 баланс')
     kb5 = KeyboardButton(text='🎲 Играть')
     kb6 = KeyboardButton(text='👤 Профиль')  # Новая кнопка профиля
     
@@ -288,6 +288,7 @@ def kb_urls():
         [InlineKeyboardButton(text='« Назад', callback_data=f'back_admin')]
     ])
     return bilder.as_markup()
+
 
 
 
