@@ -15,6 +15,7 @@ from loader import dp, db, bot, crypto
 from keybords import *
 from config import *
 from States import *
+from States import Captcha_users, AddBalanceUser, GameDice, GameSlots, GameFootball, GameKNB
 
 # Импортируем словарь капчи
 try:
@@ -694,3 +695,4 @@ async def process_football_bet(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
         await state.clear()
+
