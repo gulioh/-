@@ -1,6 +1,7 @@
 import datetime
 import asyncio
 import random
+import logging
 
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
@@ -16,6 +17,10 @@ from keybords import *
 from config import *
 from States import *
 from States import Captcha_users, AddBalanceUser, GameDice, GameSlots, GameFootball, GameKNB
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Импортируем словарь капчи
 try:
@@ -69,6 +74,7 @@ async def cmd_start(message: Message, state: FSMContext):
         await state.set_state(Captcha_users.status)
         
     except Exception as e:
+        logger.error(f"Ошибка в cmd_start: {e}")
         await message.answer("❌ Произошла ошибка при запуске бота")
 
 @dp.callback_query(F.data.startswith('Captcha'), Captcha_users.status)
@@ -101,6 +107,7 @@ async def chek_captcha(callback: CallbackQuery, state: FSMContext):
                 reply_markup=await captcha_keybord(word_new)
             )
     except Exception as e:
+        logger.error(f"Ошибка в chek_captcha: {e}")
         await callback.answer('❌ Ошибка проверки капчи', show_alert=True)
         await state.clear()
 
@@ -154,6 +161,7 @@ async def process_add_balance(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("❌ Введите корректную сумму (например: 10)")
     except Exception as e:
+        logger.error(f"Ошибка в process_add_balance: {e}")
         await message.answer(f"❌ Ошибка создания счета: {e}")
 
 @dp.callback_query(F.data.startswith("check_payment_"))
@@ -195,6 +203,7 @@ async def check_payment_handler(callback: CallbackQuery):
             await callback.answer("❌ Счет просрочен или отменен", show_alert=True)
             
     except Exception as e:
+        logger.error(f"Ошибка в check_payment_handler: {e}")
         await callback.answer(f"❌ Ошибка проверки: {e}", show_alert=True)
 
 @dp.callback_query(F.data == "cancel_payment")
@@ -623,6 +632,38 @@ async def game_football_menu(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(GameFootball.amount)
 
+@dp.message(GameFootball.amount)
+async def process_football_amount(message: Message, state: FSMContext):
+    """Обработка суммы ставки в футбол"""
+    try:
+        amount = float(message.text)
+        user_id = message.from_user.id
+        balance = db.get_user_balance(user_id)
+        
+        if amount < 0.1:
+            await message.answer("❌ Минимальная ставка: 0.1$")
+            return
+            
+        if amount > balance:
+            await message.answer(f"❌ Недостаточно средств. Ваш баланс: {balance}$")
+            return
+        
+        await state.update_data(amount=amount)
+        
+        await message.answer(
+            f'<b>⚽️ Ставка в футбол</b>\n\n'
+            f'💰 <b>Сумма ставки:</b> {amount}$\n'
+            f'<b>Выберите тип ставки:</b>',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="⚽️ Гол (3-5 очков)", callback_data="football_goal")],
+                [InlineKeyboardButton(text="❌ Мимо (1-2 очка)", callback_data="football_miss")],
+                [InlineKeyboardButton(text="❌ Отмена", callback_data="game_football_info")]
+            ]).adjust(1).as_markup()
+        )
+        
+    except ValueError:
+        await message.answer("❌ Введите корректную сумму (например: 0.5)")
+
 @dp.callback_query(F.data.startswith("football_"), GameFootball.amount)
 async def process_football_bet(callback: CallbackQuery, state: FSMContext):
     """Обработка ставки в футбол"""
@@ -668,31 +709,4 @@ async def process_football_bet(callback: CallbackQuery, state: FSMContext):
             db.update_user_balance(user_id, win_amount)
             db.update_user_stats(user_id, 'wins', 1)
             db.update_user_stats(user_id, 'total_win', win_amount)
-            result_text = f"🎉 <b>ГОООЛ!</b>\nВы выиграли: {win_amount}$"
-        else:
-            db.update_user_stats(user_id, 'loses', 1)
-            result_text = f"😞 <b>ПРОИГРЫШ</b>\nВы проиграли: {amount}$"
-        
-        new_balance = db.get_user_balance(user_id)
-        
-        bet_type_text = "Гол ⚽️" if bet_type == "goal" else "Мимо ❌"
-        
-        await callback.message.edit_text(
-            f'<b>⚽️ Результат футбольной ставки</b>\n\n'
-            f'🎯 <b>Ваша ставка:</b> {bet_type_text}\n'
-            f'⚽️ <b>Результат броска:</b> {football_value} очков\n'
-            f'💰 <b>Сумма ставки:</b> {amount}$\n'
-            f'📈 <b>Коэффициент:</b> x{multiplier}\n\n'
-            f'{result_text}\n\n'
-            f'💰 <b>Новый баланс:</b> {new_balance}$',
-            reply_markup=InlineKeyboardBuilder([
-                [InlineKeyboardButton(text="⚽️ Сыграть еще", callback_data="game_football_info")],
-                [InlineKeyboardButton(text="📊 Меню игр", callback_data="back_to_games")]
-            ]).adjust(1).as_markup()
-        )
-        await state.clear()
-        
-    except Exception as e:
-        await callback.answer(f"❌ Ошибка: {e}", show_alert=True)
-        await state.clear()
-
+            result_text = f
