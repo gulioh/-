@@ -7,7 +7,10 @@ class Captcha_users(StatesGroup):
 
 class UserStats(StatesGroup):
     user_id = State()
-
+    
+class WithdrawBalance(StatesGroup):
+    amount = State()
+    
 class AddBalanceUser(StatesGroup):
     amount = State()
 
@@ -51,5 +54,6 @@ class GameFootball(StatesGroup):
 
 class GameKNB(StatesGroup):
     amount = State()
+
 
 
