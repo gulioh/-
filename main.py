@@ -274,13 +274,13 @@ async def info_handler(message: Message):
         '<b>💭 Информация</b>\n\n'
         f'<b>🎰 Казино:</b> {NAME_CASINO}\n'
         f'<b>🤖 Бот:</b> {NICNAME}\n'
-        f'<b>📞 Поддержка:</b> {ADMIN_USERNAME}\n\n'
+        f'📞 Поддержка: не_назначен\n\n'
         f'<b>Доступные игры:</b>\n'
         f'🎯 Кости\n'
         f'🎰 Слоты\n'
         f'⚽️ Футбол\n'
         f'🪨✂️📄 Камень-Ножницы-Бумага\n\n'
-        f'<b>Минимальная ставка:</b> 1$\n'
+        f'<b>Минимальная ставка:</b> 0.1$\n'
         f'<b>Автоматические выплаты</b>',
         reply_markup=kb_info()
     )
@@ -422,8 +422,8 @@ async def game_dice_menu(callback: CallbackQuery, state: FSMContext):
     """Меню игры в кости"""
     balance = db.get_user_balance(callback.from_user.id)
     
-    if balance < 1:
-        await callback.answer("❌ Недостаточно средств. Минимальная ставка: 1$", show_alert=True)
+    if balance < 0.1:
+        await callback.answer("❌ Недостаточно средств. Минимальная ставка: 0.1$", show_alert=True)
         return
     
     await callback.message.edit_text(
@@ -445,8 +445,8 @@ async def process_dice_amount(message: Message, state: FSMContext):
         user_id = message.from_user.id
         balance = db.get_user_balance(user_id)
         
-        if amount < 1:
-            await message.answer("❌ Минимальная ставка: 1$")
+        if amount < 0.1:
+            await message.answer("❌ Минимальная ставка: 0.1$")
             return
             
         if amount > balance:
@@ -509,3 +509,4 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+
