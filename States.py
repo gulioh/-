@@ -10,9 +10,6 @@ class UserStats(StatesGroup):
     
 class WithdrawBalance(StatesGroup):
     amount = State()
-    
-class AddBalanceUser(StatesGroup):
-    amount = State()
 
 class AddBalanceCasino(StatesGroup):
     amount = State()
@@ -54,6 +51,3 @@ class GameFootball(StatesGroup):
 
 class GameKNB(StatesGroup):
     amount = State()
-
-
-
