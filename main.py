@@ -15,8 +15,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from loader import dp, db, bot, crypto
 from keybords import *
 from config import *
-from States import *
-from States import Captcha_users, AddBalanceUser, GameDice, GameSlots, GameFootball, GameKNB
+from States import Captcha_users, AddBalanceUser, WithdrawBalance, GameDice, GameSlots, GameFootball, GameKNB
 
 # Настройка логирования
 logging.basicConfig(
@@ -247,9 +246,6 @@ async def withdraw_balance_menu(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(WithdrawBalance.amount)
 
-class WithdrawBalance(StatesGroup):
-    amount = State()
-
 @dp.message(WithdrawBalance.amount)
 async def process_withdraw_amount(message: Message, state: FSMContext):
     """Обработка суммы вывода"""
@@ -309,7 +305,7 @@ async def process_withdraw_amount(message: Message, state: FSMContext):
                 f'3. Активируйте чек\n\n'
                 f'<i>Чек действителен 24 часа</i>',
                 reply_markup=InlineKeyboardBuilder([
-                    [InlineKeyboardButton(text="💳 Получить средства", url=chemecke.bot_check_url)],
+                    [InlineKeyboardButton(text="💳 Получить средства", url=cheque.bot_check_url)],
                     [InlineKeyboardButton(text="📊 Баланс", callback_data="balance_menu")],
                     [InlineKeyboardButton(text="🎲 Играть", callback_data="back_to_games")]
                 ]).adjust(1).as_markup()
@@ -350,7 +346,7 @@ async def profile_from_balance(callback: CallbackQuery):
     """Переход в профиль из меню баланса"""
     await user_profile(callback.message)
 
-# ОБНОВЛЕННЫЙ ПРОФИЛЬ С ВЫВОДОМ
+# ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
 @dp.message(F.text == '👤 Профиль')
 async def user_profile(message: Message):
     """Профиль пользователя"""
@@ -393,7 +389,78 @@ async def user_profile(message: Message):
         ]).adjust(1).as_markup()
     )
 
-# ОБНОВЛЕННОЕ ГЛАВНОЕ МЕНЮ
+# МЕНЮ ИГР
+@dp.message(F.text == '🎲 Играть')
+async def play_menu(message: Message):
+    """Меню игр"""
+    user_id = message.from_user.id
+    logger.info(f"🎮 Пользователь {user_id} открыл меню игр")
+    
+    await message.answer(
+        "<b>🎮 Выберите игру:</b>",
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="🎲 Кости", callback_data="game_dice")],
+            [InlineKeyboardButton(text="🎰 Слоты", callback_data="game_slots")],
+            [InlineKeyboardButton(text="⚽ Футбол", callback_data="game_football")],
+            [InlineKeyboardButton(text="✂️ КНБ", callback_data="game_knb")],
+            [InlineKeyboardButton(text="📋 Меню", callback_data="back_to_menu")]
+        ]).adjust(2).as_markup()
+    )
+
+# РЕФЕРАЛЬНАЯ ПРОГРАММА
+@dp.message(F.text == '📎 Реферальная программа')
+async def referral_menu(message: Message):
+    """Реферальная программа"""
+    user_id = message.from_user.id
+    referrals_count = db.count_ref(user_id)
+    referrals_earnings = db.refka_cheks_money(user_id)
+    
+    logger.info(f"👥 Пользователь {user_id} открыл реферальное меню")
+    
+    await message.answer(
+        f'<b>📎 Реферальная программа</b>\n\n'
+        f'👤 <b>Приглашено пользователей:</b> {referrals_count}\n'
+        f'💰 <b>Заработано с рефералов:</b> {referrals_earnings}$\n\n'
+        f'<b>Ваша реферальная ссылка:</b>\n'
+        f'<code>https://t.me/{NICNAME}?start={user_id}</code>\n\n'
+        f'<b>Приглашайте друзей и получайте бонусы!</b>',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="👤 Профиль", callback_data="refresh_profile")],
+            [InlineKeyboardButton(text="📋 Меню", callback_data="back_to_menu")]
+        ]).adjust(1).as_markup()
+    )
+
+# ИНФОРМАЦИЯ
+@dp.message(F.text == '💭 Информация')
+async def info_menu(message: Message):
+    """Информационное меню"""
+    user_id = message.from_user.id
+    logger.info(f"💭 Пользователь {user_id} открыл информационное меню")
+    
+    await message.answer(
+        "<b>💭 Информация</b>\n\n"
+        "Здесь вы можете найти полезные ссылки и информацию о боте:",
+        reply_markup=kb_info()
+    )
+
+# АДМИНКА
+@dp.message(F.text == '👑 Админка')
+async def admin_menu(message: Message):
+    """Админ-меню"""
+    user_id = message.from_user.id
+    if user_id not in ADMIN:
+        logger.warning(f"🚫 Пользователь {user_id} попытался войти в админку")
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    logger.info(f"👑 Админ {user_id} открыл админ-меню")
+    await message.answer(
+        "<b>👑 Админ-панель</b>\n\n"
+        "Выберите действие:",
+        reply_markup=kb_admin()
+    )
+
+# ВОЗВРАТ В МЕНЮ
 @dp.callback_query(F.data == "back_to_menu")
 async def back_to_menu(callback: CallbackQuery):
     """Возврат в главное меню"""
@@ -404,24 +471,17 @@ async def back_to_menu(callback: CallbackQuery):
         reply_markup=kb_menu(user_id)
     )
 
-# ОБНОВИТЕ ФУНКЦИЮ kb_menu В keybords.py чтобы включить кнопку "💸 Баланс"
-# Пример обновленной функции kb_menu:
-"""
-def kb_menu(user_id):
-    builder = ReplyKeyboardBuilder()
-    builder.add(KeyboardButton(text="🎲 Играть"))
-    builder.add(KeyboardButton(text="💸 Баланс"))
-    builder.add(KeyboardButton(text="👤 Профиль"))
-    builder.add(KeyboardButton(text="📎 Реферальная программа"))
-    builder.add(KeyboardButton(text="💭 Информация"))
-    if user_id in ADMIN:
-        builder.add(KeyboardButton(text="👑 Админка"))
-    return builder.as_markup(resize_keyboard=True)
-"""
+@dp.callback_query(F.data == "back_to_games")
+async def back_to_games(callback: CallbackQuery):
+    """Возврат к играм"""
+    await play_menu(callback.message)
 
-# ОСТАЛЬНЫЕ ОБРАБОТЧИКИ (игры, проверка платежей и т.д.) остаются без изменений
-# ...
+@dp.callback_query(F.data == "refresh_profile")
+async def refresh_profile(callback: CallbackQuery):
+    """Обновление профиля"""
+    await user_profile(callback.message)
 
+# ПРОВЕРКА ПЛАТЕЖЕЙ
 @dp.callback_query(F.data.startswith("check_payment_"))
 async def check_payment_handler(callback: CallbackQuery):
     """Проверка статуса оплаты"""
@@ -487,16 +547,26 @@ async def cancel_payment_handler(callback: CallbackQuery):
         ]).adjust(1).as_markup()
     )
 
-# ДОБАВЬТЕ В config.py МИНИМАЛЬНУЮ СУММУ ВЫВОДА:
-"""
-MIN_WITHDRAWAL = 1.0  # Минимальная сумма вывода в $
-"""
+# ЗАГЛУШКИ ДЛЯ ИГР (добавьте реальную логику позже)
+@dp.callback_query(F.data == "game_dice")
+async def game_dice_handler(callback: CallbackQuery):
+    """Обработчик игры в кости"""
+    await callback.answer("🎲 Игра в кости скоро будет доступна!", show_alert=True)
 
-# ДОБАВЬТЕ В States.py СОСТОЯНИЕ ДЛЯ ВЫВОДА:
-"""
-class WithdrawBalance(StatesGroup):
-    amount = State()
-"""
+@dp.callback_query(F.data == "game_slots")
+async def game_slots_handler(callback: CallbackQuery):
+    """Обработчик игры в слоты"""
+    await callback.answer("🎰 Игра в слоты скоро будет доступна!", show_alert=True)
+
+@dp.callback_query(F.data == "game_football")
+async def game_football_handler(callback: CallbackQuery):
+    """Обработчик игры в футбол"""
+    await callback.answer("⚽ Игра в футбол скоро будет доступна!", show_alert=True)
+
+@dp.callback_query(F.data == "game_knb")
+async def game_knb_handler(callback: CallbackQuery):
+    """Обработчик игры камень-ножницы-бумага"""
+    await callback.answer("✂️ Игра КНБ скоро будет доступна!", show_alert=True)
 
 async def main():
     """Основная функция запуска бота"""
