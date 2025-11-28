@@ -381,6 +381,87 @@ async def stats_project_handler(callback: CallbackQuery):
             reply_markup=kb_back_admin()
         )
 
+# Обработчики для других кнопок админки (заглушки)
+@dp.callback_query(F.data == "stats_user")
+async def stats_user_handler(callback: CallbackQuery):
+    """Статистика пользователя"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    await callback.answer("📊 Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "add_balance")
+async def add_balance_handler(callback: CallbackQuery):
+    """Пополнение баланса казино"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    await callback.answer("💳 Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "fake_deposit")
+async def fake_deposit_handler(callback: CallbackQuery):
+    """Фейк пополнение"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    await callback.answer("🎭 Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "settings_fake")
+async def settings_fake_handler(callback: CallbackQuery):
+    """Настройки фейк ставок"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    await callback.answer("⚙️ Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "kef_edit")
+async def kef_edit_handler(callback: CallbackQuery):
+    """Редактирование коэффициентов"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    await callback.answer("📈 Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "knb")
+async def knb_handler(callback: CallbackQuery):
+    """Настройки КНБ"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    await callback.answer("🪨 Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "all_message_send")
+async def all_message_send_handler(callback: CallbackQuery):
+    """Рассылка"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    await callback.answer("📢 Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "urls")
+async def urls_handler(callback: CallbackQuery):
+    """Редактирование URL"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    await callback.answer("🔗 Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "deleted_checks")
+async def deleted_checks_handler(callback: CallbackQuery):
+    """Удаление чеков"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    await callback.answer("🗑️ Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "send_db")
+async def send_db_handler(callback: CallbackQuery):
+    """Получение БД"""
+    if callback.from_user.id not in ADMIN:
+        await callback.answer("❌ Нет доступа", show_alert=True)
+        return
+    await callback.answer("📦 Функция в разработке", show_alert=True)
+
 # ИГРЫ
 @dp.message(F.text == '🎲 Играть')
 async def play_game_menu(message: Message):
@@ -430,7 +511,7 @@ async def game_dice_menu(callback: CallbackQuery, state: FSMContext):
         f'<b>🎯 Игра в кости</b>\n\n'
         f'💰 <b>Баланс:</b> {balance}$\n\n'
         f'<b>Введите сумму ставки:</b>\n'
-        f'<i>Минимальная ставка: 1$</i>',
+        f'<i>Минимальная ставка: 0.1$</i>',
         reply_markup=InlineKeyboardBuilder([
             [InlineKeyboardButton(text="❌ Назад", callback_data="back_to_games")]
         ]).as_markup()
@@ -499,8 +580,21 @@ async def process_dice_amount(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("❌ Введите корректную сумму (например: 10)")
 
-# ДОБАВЬТЕ АНАЛОГИЧНЫЕ ОБРАБОТЧИКИ ДЛЯ ДРУГИХ ИГР (слоты, футбол, КНБ)
-# Для простоты можно скопировать логику игры в кости и адаптировать
+# Заглушки для других игр
+@dp.callback_query(F.data == "game_slots")
+async def game_slots_handler(callback: CallbackQuery):
+    """Слоты"""
+    await callback.answer("🎰 Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "game_football")
+async def game_football_handler(callback: CallbackQuery):
+    """Футбол"""
+    await callback.answer("⚽️ Функция в разработке", show_alert=True)
+
+@dp.callback_query(F.data == "game_knb")
+async def game_knb_handler(callback: CallbackQuery):
+    """КНБ"""
+    await callback.answer("🪨 Функция в разработке", show_alert=True)
 
 async def main():
     """Запуск бота"""
@@ -509,4 +603,3 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
-
