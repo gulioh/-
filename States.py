@@ -51,3 +51,5 @@ class GameFootball(StatesGroup):
 
 class GameKNB(StatesGroup):
     amount = State()
+    choice = State()  # Добавлено для выбора камень/ножницы/бумага
+
