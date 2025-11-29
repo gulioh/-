@@ -15,7 +15,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from loader import dp, db, bot, crypto
 from keybords import *
 from config import *
-from States import Captcha_users, AddBalanceUser, WithdrawBalance, GameDice, GameSlots, GameFootball, GameKNB
+from States import Captcha_users, AddBalanceUser, WithdrawBalance, GameDice, GameSlots, GameFootball, GameKNB, UserStats
 
 # Настройка логирования
 logging.basicConfig(
@@ -908,6 +908,199 @@ async def process_knb_choice(callback: CallbackQuery, state: FSMContext):
     )
     await state.clear()
 
+# АДМИН ПАНЕЛЬ - СТАТИСТИКА
+@dp.message(F.text == '👑 Админка')
+async def admin_menu(message: Message):
+    """Админ-меню"""
+    user_id = message.from_user.id
+    if user_id not in ADMIN:
+        logger.warning(f"🚫 Пользователь {user_id} попытался войти в админку")
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    logger.info(f"👑 Админ {user_id} открыл админ-меню")
+    await message.answer(
+        "<b>👑 Админ-панель</b>\n\n"
+        "Выберите действие:",
+        reply_markup=kb_admin()
+    )
+
+# СТАТИСТИКА ПРОЕКТА
+@dp.callback_query(F.data == "stats_project")
+async def stats_project_handler(callback: CallbackQuery):
+    """Статистика проекта"""
+    user_id = callback.from_user.id
+    if user_id not in ADMIN:
+        await callback.answer("❌ Доступ запрещен", show_alert=True)
+        return
+    
+    logger.info(f"📊 Админ {user_id} запросил статистику проекта")
+    
+    try:
+        # Статистика за день
+        day_stats = db.all_stats_day()
+        if day_stats:
+            day_plays, day_wins, day_loses, day_win_balance, day_lose_balance = day_stats
+        else:
+            day_plays = day_wins = day_loses = day_win_balance = day_lose_balance = 0
+        
+        # Общая статистика
+        total_stats = db.all_stats()
+        if total_stats:
+            total_plays, total_wins, total_loses, total_win_balance, total_lose_balance, total_users = total_stats
+        else:
+            total_plays = total_wins = total_loses = total_win_balance = total_lose_balance = total_users = 0
+        
+        # Расчет процентов
+        day_win_rate = round((day_wins / day_plays * 100), 1) if day_plays > 0 else 0
+        total_win_rate = round((total_wins / total_plays * 100), 1) if total_plays > 0 else 0
+        
+        # Прибыль казино
+        day_profit = round(day_lose_balance - day_win_balance, 2)
+        total_profit = round(total_lose_balance - total_win_balance, 2)
+        
+        await callback.message.edit_text(
+            f'<b>📊 Статистика проекта</b>\n\n'
+            
+            f'<b>📈 За сегодня:</b>\n'
+            f'🎮 Игр сыграно: {day_plays}\n'
+            f'✅ Побед: {day_wins} ({day_win_rate}%)\n'
+            f'❌ Поражений: {day_loses}\n'
+            f'💸 Выиграно: {day_win_balance}$\n'
+            f'📉 Проиграно: {day_lose_balance}$\n'
+            f'💰 Прибыль казино: {day_profit}$\n\n'
+            
+            f'<b>📊 За все время:</b>\n'
+            f'👤 Всего пользователей: {total_users}\n'
+            f'🎮 Игр сыграно: {total_plays}\n'
+            f'✅ Побед: {total_wins} ({total_win_rate}%)\n'
+            f'❌ Поражений: {total_loses}\n'
+            f'💸 Выиграно: {total_win_balance}$\n'
+            f'📉 Проиграно: {total_lose_balance}$\n'
+            f'💰 Прибыль казино: {total_profit}$',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="🔄 Обновить", callback_data="stats_project")],
+                [InlineKeyboardButton(text="« Назад", callback_data="back_admin")]
+            ]).adjust(1).as_markup()
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка получения статистики проекта: {e}")
+        await callback.message.edit_text(
+            f'❌ Ошибка получения статистики: {e}',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="« Назад", callback_data="back_admin")]
+            ]).as_markup()
+        )
+
+# СТАТИСТИКА ИГРОКА
+@dp.callback_query(F.data == "stats_user")
+async def stats_user_handler(callback: CallbackQuery, state: FSMContext):
+    """Статистика игрока"""
+    user_id = callback.from_user.id
+    if user_id not in ADMIN:
+        await callback.answer("❌ Доступ запрещен", show_alert=True)
+        return
+    
+    logger.info(f"👤 Админ {user_id} запросил статистику игрока")
+    
+    await callback.message.edit_text(
+        '<b>👤 Статистика игрока</b>\n\n'
+        'Введите ID пользователя:',
+        reply_markup=InlineKeyboardBuilder([
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="back_admin")]
+        ]).as_markup()
+    )
+    await state.set_state(UserStats.user_id)
+
+@dp.message(UserStats.user_id)
+async def process_user_stats(message: Message, state: FSMContext):
+    """Обработка ID пользователя для статистики"""
+    user_id = message.from_user.id
+    if user_id not in ADMIN:
+        await message.answer("❌ Доступ запрещен")
+        return
+    
+    try:
+        target_user_id = int(message.text)
+        
+        # Проверяем существование пользователя
+        if not db.user_exists(target_user_id):
+            await message.answer(
+                f'❌ Пользователь с ID {target_user_id} не найден',
+                reply_markup=InlineKeyboardBuilder([
+                    [InlineKeyboardButton(text="« Назад", callback_data="back_admin")]
+                ]).as_markup()
+            )
+            await state.clear()
+            return
+        
+        # Получаем статистику пользователя
+        stats = db.all_stats_users(target_user_id)
+        if stats:
+            total_games, wins, loses, total_win, total_lose, balance_ref = stats
+        else:
+            total_games = wins = loses = total_win = total_lose = balance_ref = 0
+        
+        balance = db.get_user_balance(target_user_id)
+        referrals_count = db.count_ref(target_user_id)
+        referrals_earnings = db.refka_cheks_money(target_user_id)
+        
+        win_rate = round((wins/total_games*100), 1) if total_games > 0 else 0
+        
+        await message.answer(
+            f'<b>👤 Статистика пользователя {target_user_id}</b>\n\n'
+            f'💰 <b>Баланс:</b> {balance}$\n'
+            f'🎮 <b>Всего игр:</b> {total_games}\n'
+            f'✅ <b>Побед:</b> {wins}\n'
+            f'❌ <b>Поражений:</b> {loses}\n'
+            f'🏆 <b>Процент побед:</b> {win_rate}%\n\n'
+            f'<b>📊 Финансовая статистика:</b>\n'
+            f'💸 <b>Выиграно:</b> {total_win}$\n'
+            f'📉 <b>Проиграно:</b> {total_lose}$\n\n'
+            f'<b>👥 Реферальная программа:</b>\n'
+            f'👤 <b>Приглашено:</b> {referrals_count} чел.\n'
+            f'💵 <b>Заработано:</b> {referrals_earnings}$',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="🔄 Проверить другого", callback_data="stats_user")],
+                [InlineKeyboardButton(text="« Назад", callback_data="back_admin")]
+            ]).adjust(1).as_markup()
+        )
+        await state.clear()
+        
+    except ValueError:
+        await message.answer(
+            "❌ Введите корректный ID пользователя (только цифры)",
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="❌ Отмена", callback_data="back_admin")]
+            ]).as_markup()
+        )
+    except Exception as e:
+        logger.error(f"❌ Ошибка получения статистики пользователя: {e}")
+        await message.answer(
+            f'❌ Ошибка получения статистики: {e}',
+            reply_markup=InlineKeyboardBuilder([
+                [InlineKeyboardButton(text="« Назад", callback_data="back_admin")]
+            ]).as_markup()
+        )
+        await state.clear()
+
+# ВОЗВРАТ В АДМИН ПАНЕЛЬ
+@dp.callback_query(F.data == "back_admin")
+async def back_admin_handler(callback: CallbackQuery, state: FSMContext):
+    """Возврат в админ панель"""
+    user_id = callback.from_user.id
+    if user_id not in ADMIN:
+        await callback.answer("❌ Доступ запрещен", show_alert=True)
+        return
+    
+    await state.clear()
+    await callback.message.edit_text(
+        "<b>👑 Админ-панель</b>\n\n"
+        "Выберите действие:",
+        reply_markup=kb_admin()
+    )
+
 # РЕФЕРАЛЬНАЯ ПРОГРАММА
 @dp.message(F.text == '📎 Реферальная программа')
 async def referral_menu(message: Message):
@@ -942,23 +1135,6 @@ async def info_menu(message: Message):
         "<b>💭 Информация</b>\n\n"
         "Здесь вы можете найти полезные ссылки и информацию о боте:",
         reply_markup=kb_info()
-    )
-
-# АДМИНКА
-@dp.message(F.text == '👑 Админка')
-async def admin_menu(message: Message):
-    """Админ-меню"""
-    user_id = message.from_user.id
-    if user_id not in ADMIN:
-        logger.warning(f"🚫 Пользователь {user_id} попытался войти в админку")
-        await message.answer("❌ Доступ запрещен")
-        return
-    
-    logger.info(f"👑 Админ {user_id} открыл админ-меню")
-    await message.answer(
-        "<b>👑 Админ-панель</b>\n\n"
-        "Выберите действие:",
-        reply_markup=kb_admin()
     )
 
 # ВОЗВРАТ В МЕНЮ
