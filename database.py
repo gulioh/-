@@ -144,10 +144,12 @@ class DataBase:
 
     def all_stats_day(self):
         with self.connection:
-            return self.cur.execute('SELECT count_play, win, lose, balance_win, balance_lose FROM stats WHERE id = 1').fetchone()
+            result = self.cur.execute('SELECT count_play, win, lose, balance_win, balance_lose FROM stats WHERE id = 1').fetchone()
+            return result if result else (0, 0, 0, 0, 0)
 
     def all_stats(self):
         with self.connection:
+            # Исправленный запрос - убрали SUM из COUNT(user_id)
             result = self.cur.execute('SELECT SUM(count_play), SUM(win), SUM(lose), SUM(balance_win), SUM(balance_lose), COUNT(user_id) FROM users').fetchone()
             return result if result else (0, 0, 0, 0, 0, 0)
 
@@ -219,10 +221,10 @@ class DataBase:
             res = self.cur.execute('SELECT * FROM settings WHERE id = 1').fetchone()
             if res:
                 return {
-                    'KEF1': res[1], 'KEF2': res[2], 'KEF3': res[3], 'KEF4': res[4], 'KEF5': res[5],
-                    'KEF6': res[6], 'KEF7': res[7], 'KEF8': res[8], 'KEF9': res[9], 'KEF10': res[10],
-                    'KEF11': res[11], 'KEF12': res[12], 'KEF13': res[13], 'KEF14': res[14], 'KEF15': res[15],
-                    'KEF16': res[16], 'KEF17': res[17]
+                    'KEF1': res[2], 'KEF2': res[3], 'KEF3': res[4], 'KEF4': res[5], 'KEF5': res[6],
+                    'KEF6': res[7], 'KEF7': res[8], 'KEF8': res[9], 'KEF9': res[10], 'KEF10': res[11],
+                    'KEF11': res[12], 'KEF12': res[13], 'KEF13': res[14], 'KEF14': res[15], 'KEF15': res[16],
+                    'KEF16': res[17], 'KEF17': res[18]
                 }
             return {}
 
